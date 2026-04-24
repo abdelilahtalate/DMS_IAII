@@ -3,9 +3,8 @@ uvicorn
 websockets
 opencv-python
 numpy
-mediapipe==0.10.5
+mediapipe==0.10.33
 python-dotenv
-=======
 # ── Web Framework ──────────────────────────────────────────
 fastapi==0.115.0
 uvicorn[standard]==0.30.0

@@ -1,85 +1,136 @@
 # backend/ai/distraction/detector.py
 
+import numpy as np
+from typing import List, Dict, Any, Optional
 from ai.base import BaseTemporalDetector
 from pipeline.frame_context import FrameContext
-from .head_pose import compute_head_pose_score
-from .gaze_direction import compute_gaze_score
 
 
 class DistractionDetector(BaseTemporalDetector):
-
-    name = "distraction"
-    required_frames = 20   # ~2 secondes à 10 fps
-    min_frames      = 7    # scorer après ~0.7 sec
-
-    def load_model(self) -> None:
-        # Pas de modèle lourd pour l'instant
-        # Ajoute ici le chargement de poids si besoin
-        pass
-
-    def predict(self, frames: list[FrameContext]) -> dict:
+    """
+    Détecteur de distraction basé sur:
+    - Head pose (yaw, pitch, roll)
+    - Gaze direction
+    """
+    
+    def __init__(self, buffer_size: int = 20, stride: int = 3):
+        super().__init__(buffer_size=buffer_size, stride=stride)
+        
+        # Seuils de distraction
+        self.yaw_threshold = 30  # degrés
+        self.pitch_threshold = 20  # degrés
+        self.gaze_threshold = 0.3  # score
+        
+    def compute(self) -> Dict[str, Any]:
         """
-        frames = liste de jusqu'à 20 FrameContext (oldest → newest)
-        Analyse la tendance de distraction sur la fenêtre temporelle.
+        Calcule le score de distraction à partir du buffer.
+        Cette méthode est appelée automatiquement par BaseTemporalDetector
+        quand le buffer est plein et que le stride est atteint.
         """
-
-        # Extraire les données valides sur toute la fenêtre
-        head_pose_data = [
-            f.landmarks["head_pose"]
-            for f in frames
-            if f.landmarks["head_pose"] is not None
-        ]
-        gaze_data = [
-            f.landmarks["gaze"]
-            for f in frames
-            if f.landmarks["gaze"] is not None
-        ]
-
-        # Pas assez de données → pas de visage détecté
-        if len(head_pose_data) < 3 and len(gaze_data) < 3:
+        if len(self.buffer) == 0:
             return {
-                "score":      0.0,
+                "score": 0.0,
                 "confidence": 0.0,
-                "label":      "no_face",
-                "details":    {"frames_used": len(frames)},
+                "label": "no_data",
+                "details": {"frames_used": 0}
             }
-
-        # Score head pose sur la fenêtre temporelle
-        head_score, head_details = compute_head_pose_score(head_pose_data)
-
-        # Score gaze sur la fenêtre temporelle
-        gaze_score, gaze_details = compute_gaze_score(gaze_data)
-
-        # Pondération : head_pose 60%, gaze 40%
-        final_score = (head_score * 0.6) + (gaze_score * 0.4)
-        final_score = round(min(max(final_score, 0.0), 1.0), 4)
-
-        # Confidence basée sur la couverture des données
-        total_possible = len(frames) * 2  # head + gaze par frame
-        total_valid    = len(head_pose_data) + len(gaze_data)
-        data_coverage  = total_valid / total_possible if total_possible > 0 else 0.0
-        confidence     = round(min(0.5 + data_coverage * 0.45, 0.95), 4)
-
-        # Label
-        if final_score >= 0.75:
-            label = "highly_distracted"
-        elif final_score >= 0.45:
-            label = "slightly_distracted"
-        else:
+        
+        scores = []
+        for ctx in self.buffer:
+            score = self._compute_single_frame_score(ctx)
+            scores.append(score)
+        
+        # Moyenne des scores
+        avg_score = np.mean(scores)
+        
+        # Déterminer le label
+        if avg_score < 0.3:
             label = "attentive"
-
+            confidence = 1.0 - avg_score
+        elif avg_score < 0.7:
+            label = "moderately_distracted"
+            confidence = avg_score
+        else:
+            label = "highly_distracted"
+            confidence = avg_score
+        
+        # Calculer le pourcentage de frames avec distraction
+        distracted_frames = sum(1 for s in scores if s > 0.5)
+        distraction_ratio = distracted_frames / len(scores) if scores else 0
+        
         return {
-            "score":      final_score,
-            "confidence": confidence,
-            "label":      label,
+            "score": float(avg_score),
+            "confidence": float(confidence),
+            "label": label,
             "details": {
-                "head_yaw":         head_details.get("avg_yaw"),
-                "head_pitch":       head_details.get("avg_pitch"),
-                "head_score":       round(head_score, 4),
-                "gaze":             gaze_details.get("dominant_direction"),
-                "gaze_score":       round(gaze_score, 4),
-                "frames_used":      len(frames),
-                "head_frames":      len(head_pose_data),
-                "gaze_frames":      len(gaze_data),
-            },
+                "frames_used": len(self.buffer),
+                "distraction_ratio": round(distraction_ratio, 2),
+                "avg_head_pose_score": float(np.mean([self._get_head_score(ctx) for ctx in self.buffer])),
+                "avg_gaze_score": float(np.mean([self._get_gaze_score(ctx) for ctx in self.buffer])),
+            }
         }
+    
+    def _compute_single_frame_score(self, ctx: FrameContext) -> float:
+        """
+        Calcule le score pour une frame unique.
+        """
+        head_score = self._get_head_score(ctx)
+        gaze_score = self._get_gaze_score(ctx)
+        
+        # Score combiné (70% head, 30% gaze)
+        total_score = (head_score * 0.7) + (gaze_score * 0.3)
+        
+        return min(1.0, total_score)
+    
+    def _get_head_score(self, ctx: FrameContext) -> float:
+        """Calcule le score basé sur la position de la tête."""
+        # Récupérer les landmarks
+        landmarks = getattr(ctx, 'landmarks', {})
+        head_pose = landmarks.get("head_pose")
+        
+        if not head_pose:
+            return 0.0
+        
+        yaw = abs(head_pose.get("yaw", 0))
+        pitch = abs(head_pose.get("pitch", 0))
+        
+        # Score proportionnel aux angles
+        yaw_score = min(1.0, yaw / self.yaw_threshold)
+        pitch_score = min(1.0, pitch / self.pitch_threshold)
+        
+        return max(yaw_score, pitch_score)
+    
+    def _get_gaze_score(self, ctx: FrameContext) -> float:
+        """Calcule le score basé sur la direction du regard."""
+        landmarks = getattr(ctx, 'landmarks', {})
+        gaze = landmarks.get("gaze")
+        
+        if not gaze:
+            return 0.0
+        
+        direction = gaze.get("direction", "center")
+        
+        if direction == "center":
+            return 0.0
+        elif direction in ["left", "right"]:
+            return 0.8
+        else:  # up, down
+            return 0.6
+    
+    def predict(self, frames: List[FrameContext]) -> Dict[str, Any]:
+        """
+        Prédit la distraction sur une séquence de frames.
+        """
+        # Vider le buffer
+        self.buffer.clear()
+        self.step = 0
+        
+        # Ajouter chaque frame
+        for frame in frames:
+            result = self.push_frame(frame)
+        
+        # Retourner le dernier résultat ou calculer un nouveau
+        if self.last_output is not None:
+            return self.last_output
+        else:
+            return self.compute()

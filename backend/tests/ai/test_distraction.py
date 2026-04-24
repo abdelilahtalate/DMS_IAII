@@ -6,18 +6,27 @@ from ai.distraction.detector import DistractionDetector
 
 
 def make_frame(head_pose=None, gaze=None) -> FrameContext:
-    return FrameContext(
-        frame_id  ="test-dist",
-        timestamp =0.0,
-        raw_jpeg  =b"",
-        full_image=np.zeros((480, 640, 3), dtype=np.uint8),
-        landmarks ={
-            "eyes": None, "mouth": None,
-            "head_pose": head_pose,
-            "gaze":      gaze,
-            "hands":     None,
-        },
+    frame = FrameContext(
+        frame_id="test-dist",
+        timestamp=0.0,
+        raw_frame=np.zeros((480, 640, 3), dtype=np.uint8),
+        face_crop=None,
+        left_eye_points=None,
+        right_eye_points=None,
+        iris_points=None,
+        mouth_points=None,
+        face_detected=head_pose is not None,
+        preprocessing_ms=0.0,
     )
+    # Ajouter l'attribut landmarks comme attendu par le détecteur
+    frame.landmarks = {
+        "eyes": None,
+        "mouth": None,
+        "head_pose": head_pose,
+        "gaze": gaze,
+        "hands": None,
+    }
+    return frame
 
 
 def make_frames(n: int, head_pose=None, gaze=None) -> list[FrameContext]:
@@ -28,9 +37,9 @@ def make_frames(n: int, head_pose=None, gaze=None) -> list[FrameContext]:
 
 def test_no_face_when_no_landmarks():
     detector = DistractionDetector()
-    result   = detector.predict(make_frames(15))
-    assert result["label"]  == "no_face"
-    assert result["score"]  == 0.0
+    result = detector.predict(make_frames(15))
+    assert result["label"] == "no_face"
+    assert result["score"] == 0.0
 
 def test_score_in_valid_range():
     head = {"yaw": 25.0, "pitch": -10.0, "roll": 3.0}
