@@ -1,21 +1,45 @@
-import cv2
-
-def open_camera(camera_id=0):
-    """
-    Opens the webcam and returns the capture object.
-    """
-    cap = cv2.VideoCapture(camera_id)
-    
-    if not cap.isOpened():
-        raise RuntimeError("Cannot open camera")
-    
-    return cap
+from dataclasses import dataclass
+from typing import Optional, List, Tuple
+import numpy as np
 
 
-def get_frame(cap):
+Point = Tuple[float, float]
+
+# hena li khsato xi haja isiftli bhal xi jointure jdid wela ila bgha image kamle kima hya isftlyaa
+@dataclass
+class FrameContext:
     """
-    Reads one frame from the camera.
-    Returns: (ret, frame)
+    Pure RAW data container.
+    NO AI logic inside.
+    Only stores extracted landmarks + images.
     """
-    ret, frame = cap.read()
-    return ret, frame
+
+    # =========================
+    # 🆔 Identity
+    # =========================
+    frame_id: str
+    timestamp: float
+
+    # =========================
+    # 📥 FRAME DATA
+    # =========================
+    raw_frame: np.ndarray              # original camera frame (BGR)
+    face_crop: Optional[np.ndarray]    # cropped face image
+
+    # =========================
+    # 👁 EYES (RAW LANDMARKS ONLY)
+    # =========================
+    left_eye_points: Optional[List[Point]]
+    right_eye_points: Optional[List[Point]]
+    iris_points: Optional[List[Point]]
+
+    # =========================
+    # 👄 MOUTH (RAW LANDMARKS ONLY)
+    # =========================
+    mouth_points: Optional[List[Point]]
+
+    # =========================
+    # ⚡ METADATA
+    # =========================
+    face_detected: bool
+    preprocessing_ms: float = 0.0
