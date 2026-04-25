@@ -19,8 +19,7 @@ async def stream(websocket: WebSocket):
 
             # 2. Preprocess → FrameContext
             frame_context = preprocess(jpeg_bytes)
-
-            # 3. Send to aggregator → final prediction JSON
+            
             result = aggregator.process(frame_context)
 
             # 4. Send result back to client

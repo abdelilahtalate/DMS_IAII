@@ -42,3 +42,5 @@ build/
 *.mp4
 *.avi
 *.mkv
+*.ipynb
+frame_dump.txt

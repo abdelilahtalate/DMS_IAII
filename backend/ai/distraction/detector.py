@@ -36,8 +36,11 @@ class DistractionDetector(BaseTemporalDetector):
             }
         
         scores = []
+        
+
         for ctx in self.buffer:
             score = self._compute_single_frame_score(ctx)
+            
             scores.append(score)
         
         # Moyenne des scores

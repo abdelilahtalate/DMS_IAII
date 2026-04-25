@@ -4,9 +4,10 @@ from ai.BaseInstantDetector import BaseInstantDetector
 from pipeline.frame_context import FrameContext
 from .hand_tracking import compute_hand_score
 from .object_detection import compute_object_score
+from ai.BaseTemporalDetector import BaseTemporalDetector
 
 
-class PhoneUsageDetector(BaseInstantDetector):
+class PhoneUsageDetector(BaseTemporalDetector):
 
     name = "phone_usage"
 
@@ -18,24 +19,19 @@ class PhoneUsageDetector(BaseInstantDetector):
     def load_model(self) -> None:
         self.obj_model = None
 
-    def predict(self, ctx: FrameContext) -> dict:
+    def compute(self) -> dict:
         """
         Appelé sur chaque frame (instant track).
         Combine la détection de main (landmarks) et la détection d'objet (image).
         """
+        # print(aa)
+        ctx = self.buffer[-1]
+        
         # DEBUG: Afficher ce qui est reçu
         print("=" * 50)
         print("📊 predict() appelé")
         
-        # Récupérer les landmarks
-        if hasattr(ctx, 'landmarks'):
-            landmarks = ctx.landmarks
-            print(f"✅ landmarks trouvés: {list(landmarks.keys()) if landmarks else 'None'}")
-        else:
-            landmarks = {}
-            print("❌ Pas d'attribut 'landmarks' dans ctx")
-        
-        hands = landmarks.get("hands") if landmarks else None
+        hands = ctx.hands
         print(f"👋 hands: {hands is not None}")
         if hands:
             print(f"   detected: {hands.get('detected')}")
@@ -80,6 +76,7 @@ class PhoneUsageDetector(BaseInstantDetector):
                 "hand_near_face": hand_details.get("near_face", False),
                 "hand_score": round(hand_score, 4),
                 "object_detected": obj_details.get("detected", False),
+                "obj_status": obj_details.get("status", ""),
                 "object_score": round(obj_score, 4),
                 "object_bbox": obj_details.get("bbox"),
             },

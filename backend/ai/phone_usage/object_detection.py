@@ -50,6 +50,7 @@ def compute_object_score(
     # Modèle non chargé → pas de détection possible
     if model is None:
         return 0.0, {
+            "status":"no model",
             "detected":   False,
             "confidence": 0.30,   # incertitude explicite
             "bbox":       None,

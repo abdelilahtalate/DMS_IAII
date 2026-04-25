@@ -19,11 +19,19 @@ FACE_CROP_SIZE = 112
 # MEDIAPIPE INIT
 # =========================
 mp_face = mp.solutions.face_mesh
+mp_hands = mp.solutions.hands
 
 face_mesh = mp_face.FaceMesh(
     static_image_mode=False,
     max_num_faces=2,  # we detect up to 2 only to reject multi-face
     refine_landmarks=True,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
+
+hands_detector = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=2,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 )
@@ -86,6 +94,7 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
     image = cv2.imdecode(arr, cv2.IMREAD_COLOR)
 
     if image is None:
+        print("image is None")
         return FrameContext(
             frame_id=frame_id,
             timestamp=timestamp,
@@ -95,6 +104,7 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
             right_eye_points=None,
             iris_points=None,
             mouth_points=None,
+            hands=None,
             face_detected=False,
             preprocessing_ms=0.0,
         )
@@ -135,6 +145,7 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
                 right_eye_points=None,
                 iris_points=None,
                 mouth_points=None,
+                hands=None,
                 face_detected=False,
                 preprocessing_ms=(time.perf_counter() - start) * 1000,
             )
@@ -155,6 +166,40 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
         face_crop = _face_crop(image, lm, w, h)
 
     # -------------------------
+    # Hand detection
+    # -------------------------
+    hand_result = hands_detector.process(rgb)
+    hands_dict = None
+    
+    if hand_result.multi_hand_landmarks:
+        positions = []
+        for hand_landmarks in hand_result.multi_hand_landmarks:
+            for lm in hand_landmarks.landmark:
+                positions.append((lm.x * w, lm.y * h))
+        
+        near_face = False
+        if face_detected and result.multi_face_landmarks:
+            face_lm = result.multi_face_landmarks[0].landmark
+            face_xs = [lm.x * w for lm in face_lm]
+            face_ys = [lm.y * h for lm in face_lm]
+            fx1, fx2 = min(face_xs), max(face_xs)
+            fy1, fy2 = min(face_ys), max(face_ys)
+            
+            expand_x = (fx2 - fx1) * 0.5
+            expand_y = (fy2 - fy1) * 0.5
+            
+            for px, py in positions:
+                if fx1 - expand_x <= px <= fx2 + expand_x and fy1 - expand_y <= py <= fy2 + expand_y:
+                    near_face = True
+                    break
+                    
+        hands_dict = {
+            "detected": True,
+            "near_face": near_face,
+            "positions": positions
+        }
+
+    # -------------------------
     # Build FrameContext
     # -------------------------
     end = time.perf_counter()
@@ -169,6 +214,8 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
         right_eye_points=right_eye,
         iris_points=iris,
         mouth_points=mouth,
+        
+        hands=hands_dict,
 
         face_detected=face_detected,
         preprocessing_ms=(end - start) * 1000

@@ -43,3 +43,8 @@ class FrameContext:
     # =========================
     face_detected: bool
     preprocessing_ms: float = 0.0
+
+    # =========================
+    # ✋ HANDS (EXTRA)
+    # =========================
+    hands: Optional[dict] = None

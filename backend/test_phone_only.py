@@ -56,15 +56,15 @@ ctx = FrameContext(
     mouth_points=None,
     face_detected=True,
     preprocessing_ms=0.0,
+    hands=hands_data
 )
-ctx.landmarks = lm
 
-print(f"Landmarks créés: {ctx.landmarks is not None}")
-print(f"  hands: {ctx.landmarks.get('hands')}")
+print(f"Hands créés: {ctx.hands is not None}")
+print(f"  hands: {ctx.hands}")
 print()
 
-print("Appel de phone_det.predict()...")
-result = phone_det.predict(ctx)
+print("Appel de phone_det.push_frame(ctx)...")
+result = phone_det.push_frame(ctx)
 print(f"Résultat: {result}")
 print()
 
@@ -73,7 +73,7 @@ print("TEST 3: Vérification dans le détecteur")
 print("=" * 50)
 
 # Simuler ce que fait le détecteur
-hands = ctx.landmarks.get("hands")
+hands = ctx.hands
 print(f"hands récupéré: {hands}")
 print(f"  detected: {hands.get('detected') if hands else None}")
 print(f"  near_face: {hands.get('near_face') if hands else None}")
