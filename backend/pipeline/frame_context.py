@@ -25,7 +25,8 @@ class FrameContext:
     # =========================
     raw_frame: np.ndarray              # original camera frame (BGR)
     face_crop: Optional[np.ndarray]    # cropped face image
-
+    nose_tip: Optional[Point]
+    chin: Optional[Point]
     # =========================
     # 👁 EYES (RAW LANDMARKS ONLY)
     # =========================

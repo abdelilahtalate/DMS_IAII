@@ -47,7 +47,8 @@ LEFT_IRIS_IDX = [474, 475, 476, 477]
 RIGHT_IRIS_IDX = [469, 470, 471, 472]
 
 MOUTH_IDX = [13, 14, 78, 308]
-
+NOSE_TIP_IDX = [1]
+CHIN_IDX = [152]
 
 # =========================
 # HELPERS
@@ -158,7 +159,8 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
 
         left_eye = _to_points(lm, w, h, LEFT_EYE_IDX)
         right_eye = _to_points(lm, w, h, RIGHT_EYE_IDX)
-
+        nose_tip = _to_points(lm, w, h, NOSE_TIP_IDX)[0]  
+        chin = _to_points(lm, w, h, CHIN_IDX)[0]
         iris = _to_points(lm, w, h, LEFT_IRIS_IDX + RIGHT_IRIS_IDX)
 
         mouth = _to_points(lm, w, h, MOUTH_IDX)
@@ -209,7 +211,8 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
         timestamp=timestamp,
         raw_frame=image,
         face_crop=face_crop,
-
+        nose_tip=nose_tip,
+        chin=chin,
         left_eye_points=left_eye,
         right_eye_points=right_eye,
         iris_points=iris,

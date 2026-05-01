@@ -1,112 +1,61 @@
-# backend/ai/distraction/gaze_direction.py
+import cv2
+import numpy as np
 
-"""
-Analyse une liste de gaze dicts sur une fenêtre temporelle
-et retourne un score de distraction agrégé.
+class GazeSmoother:
+    """Smooths the gaze magnitude over a tiny window to prevent single-frame flickers"""
+    def __init__(self, size=3):
+        self.buffer = []
+        self.size = size
+        
+    def smooth(self, val):
+        self.buffer.append(val)
+        if len(self.buffer) > self.size: self.buffer.pop(0)
+        return np.mean(self.buffer)
 
-Chaque gaze dict (depuis FrameContext.landmarks["gaze"]):
-{
-    "direction": str,     # "center"|"left"|"right"|"up"|"down"
-    "vector":    list,    # [x, y] vecteur normalisé [-1, 1]
-}
-"""
-
-from collections import Counter
-
-
-# Score de risque par direction (instantané)
-GAZE_RISK_MAP: dict[str, float] = {
-    "center": 0.0,
-    "up":     0.25,
-    "down":   0.35,
-    "left":   0.80,
-    "right":  0.80,
-}
-
-# Seuils vecteur
-VECTOR_WARN = 0.3
-VECTOR_CRIT = 0.65
-
-# Fraction de frames off-center pour déclencher la pénalité durée
-OFF_CENTER_RATIO_WARN = 0.35
-OFF_CENTER_RATIO_CRIT = 0.65
-
-
-def compute_gaze_score(gaze_list: list[dict]) -> tuple[float, dict]:
+def get_gaze_distraction_score(ctx, smoother, gaze_thresh=0.35) -> float:
     """
-    Analyse une liste de gaze sur la fenêtre temporelle.
-
-    Args:
-        gaze_list: liste de dicts gaze (non-None uniquement)
-
-    Returns:
-        (score: float [0.0–1.0], details: dict)
+    High precision gaze using Ellipse fitting and Angle Compensation.
     """
-    if not gaze_list:
-        return 0.0, {"dominant_direction": None, "confidence": 0.0}
-
-    directions = [g.get("direction", "center") for g in gaze_list]
-    vectors    = [g.get("vector", [0.0, 0.0])  for g in gaze_list]
-
-    # Direction dominante sur la fenêtre
-    direction_counts    = Counter(directions)
-    dominant_direction  = direction_counts.most_common(1)[0][0]
-
-    # Score instantané par frame (combinaison direction + vecteur)
-    per_frame_scores = [
-        _frame_gaze_score(d, v)
-        for d, v in zip(directions, vectors)
-    ]
-
-    # Fraction de frames off-center
-    off_center_frames = sum(1 for d in directions if d != "center")
-    off_center_ratio  = off_center_frames / len(directions)
-
-    # Score moyen instantané
-    avg_score = sum(per_frame_scores) / len(per_frame_scores)
-
-    # Pénalité durée
-    if off_center_ratio >= OFF_CENTER_RATIO_CRIT:
-        duration_penalty = 1.0
-    elif off_center_ratio >= OFF_CENTER_RATIO_WARN:
-        t = (off_center_ratio - OFF_CENTER_RATIO_WARN) / \
-            (OFF_CENTER_RATIO_CRIT - OFF_CENTER_RATIO_WARN)
-        duration_penalty = 0.5 + 0.5 * t
-    else:
-        duration_penalty = off_center_ratio / OFF_CENTER_RATIO_WARN * 0.5
-
-    # Fusion : 55% score moyen + 45% pénalité durée
-    final = (avg_score * 0.55) + (duration_penalty * 0.45)
-
-    return round(min(final, 1.0), 4), {
-        "dominant_direction": dominant_direction,
-        "direction_counts":   dict(direction_counts),
-        "off_center_ratio":   round(off_center_ratio, 3),
-        "avg_score":          round(avg_score, 4),
-        "confidence":         0.85,
-    }
-
-
-def _frame_gaze_score(direction: str, vector: list) -> float:
-    """
-    Score [0.0–1.0] pour une seule frame basé sur direction + vecteur.
-    """
-    base_score   = GAZE_RISK_MAP.get(direction, 0.2)
-    vector_score = _vector_to_score(vector)
-    # Prend le max pour ne pas sous-estimer
-    return max(base_score, vector_score * 0.85)
-
-
-def _vector_to_score(vector: list) -> float:
-    """
-    Norme L2 du vecteur → score [0.0–1.0].
-    """
-    if not vector or len(vector) < 2:
+    if not ctx.face_detected or not ctx.left_eye_points or not ctx.iris_points:
         return 0.0
-    magnitude = (float(vector[0]) ** 2 + float(vector[1]) ** 2) ** 0.5
-    if magnitude <= VECTOR_WARN:
-        return (magnitude / VECTOR_WARN) * 0.3
-    elif magnitude <= VECTOR_CRIT:
-        t = (magnitude - VECTOR_WARN) / (VECTOR_CRIT - VECTOR_WARN)
-        return 0.3 + 0.7 * t
-    return 1.0
+    
+    def _calc_single_gaze(eye_pts, iris_pts):
+        contour = np.array(eye_pts, dtype=np.float32)
+        iris = np.array(iris_pts, dtype=np.float32)
+        
+        if len(contour) < 5 or len(iris) == 0: return 0.0
+        
+        try:
+            ellipse = cv2.fitEllipse(contour)
+            (ex, ey), (ewidth, eheight), angle = ellipse
+            iris_center = np.mean(iris, axis=0)
+            
+            offset_x = iris_center[0] - ex
+            offset_y = iris_center[1] - ey
+            
+            # ANGLE COMPENSATION (Cancels out head tilt perfectly)
+            angle_rad = -np.radians(angle)
+            cos_a, sin_a = np.cos(angle_rad), np.sin(angle_rad)
+            comp_x = offset_x * cos_a - offset_y * sin_a
+            comp_y = offset_x * sin_a + offset_y * cos_a
+            
+            norm_x = comp_x / (ewidth / 2.0) if ewidth > 0 else 0.0
+            norm_y = comp_y / (eheight / 2.0) if eheight > 0 else 0.0
+            
+            h = np.clip(norm_x, -1, 1)
+            v = np.clip(norm_y, -1, 1)
+            
+            return np.sqrt(h**2 + v**2)
+        except cv2.error:
+            return 0.0
+
+    # Your preprocess splits iris into 4 left, 4 right
+    l_mag = _calc_single_gaze(ctx.left_eye_points, ctx.iris_points[:4])
+    r_mag = _calc_single_gaze(ctx.right_eye_points, ctx.iris_points[4:])
+    
+    avg_mag = (l_mag + r_mag) / 2
+    
+    # Smooth it before thresholding to stop jitter
+    smoothed_mag = smoother.smooth(avg_mag)
+    
+    return min(smoothed_mag / gaze_thresh, 1.0)

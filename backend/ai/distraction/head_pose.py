@@ -1,103 +1,80 @@
-# backend/ai/distraction/head_pose.py
+import cv2
+import numpy as np
 
-"""
-Analyse une liste de head_pose dicts sur une fenêtre temporelle
-et retourne un score de distraction agrégé.
-
-Chaque head_pose dict (depuis FrameContext.landmarks["head_pose"]):
-{
-    "yaw":   float,   # degrés, gauche(-) droite(+)
-    "pitch": float,   # degrés, bas(-) haut(+)
-    "roll":  float,   # degrés
-}
-"""
-
-# ── Seuils en degrés ──────────────────────────────────────────
-YAW_WARN   = 20.0    # début distraction
-YAW_CRIT   = 40.0    # distraction critique
-PITCH_WARN = 15.0
-PITCH_CRIT = 30.0
-
-# Seuil de fraction : si X% des frames sont distraites → score élevé
-DISTRACTED_FRAME_RATIO_WARN = 0.30   # 30% des frames
-DISTRACTED_FRAME_RATIO_CRIT = 0.60   # 60% des frames
-
-
-def compute_head_pose_score(head_pose_list: list[dict]) -> tuple[float, dict]:
+def get_head_pose_distraction_score(ctx, yaw_thresh=30.0, pitch_thresh=25.0, roll_thresh=20.0) -> float:
     """
-    Analyse une liste de head_pose sur la fenêtre temporelle.
-
-    Args:
-        head_pose_list: liste de dicts head_pose (non-None uniquement)
-
-    Returns:
-        (score: float [0.0–1.0], details: dict)
+    High precision 3D head pose using solvePnP and stable RQ decomposition.
     """
-    if not head_pose_list:
-        return 0.0, {"avg_yaw": None, "avg_pitch": None, "confidence": 0.0}
-
-    yaws   = [h.get("yaw",   0.0) for h in head_pose_list]
-    pitchs = [h.get("pitch", 0.0) for h in head_pose_list]
-
-    avg_yaw   = sum(yaws)   / len(yaws)
-    avg_pitch = sum(pitchs) / len(pitchs)
-
-    # Score instantané par frame
-    per_frame_scores = [
-        _frame_head_score(y, p)
-        for y, p in zip(yaws, pitchs)
-    ]
-
-    # Fraction de frames avec distraction significative (score > 0.4)
-    distracted_frames = sum(1 for s in per_frame_scores if s > 0.4)
-    distracted_ratio  = distracted_frames / len(per_frame_scores)
-
-    # Score moyen sur la fenêtre
-    avg_score = sum(per_frame_scores) / len(per_frame_scores)
-
-    # Score final = combinaison du score moyen + pénalité sur la durée
-    if distracted_ratio >= DISTRACTED_FRAME_RATIO_CRIT:
-        duration_penalty = 1.0
-    elif distracted_ratio >= DISTRACTED_FRAME_RATIO_WARN:
-        t = (distracted_ratio - DISTRACTED_FRAME_RATIO_WARN) / \
-            (DISTRACTED_FRAME_RATIO_CRIT - DISTRACTED_FRAME_RATIO_WARN)
-        duration_penalty = 0.5 + 0.5 * t
-    else:
-        duration_penalty = distracted_ratio / DISTRACTED_FRAME_RATIO_WARN * 0.5
-
-    # Fusion : 60% score moyen instantané + 40% pénalité durée
-    final = (avg_score * 0.6) + (duration_penalty * 0.4)
-
-    return round(min(final, 1.0), 4), {
-        "avg_yaw":          round(avg_yaw,   2),
-        "avg_pitch":        round(avg_pitch, 2),
-        "avg_score":        round(avg_score, 4),
-        "distracted_ratio": round(distracted_ratio, 3),
-        "confidence":       0.90,
-    }
-
-
-def _frame_head_score(yaw: float, pitch: float) -> float:
-    """
-    Score [0.0–1.0] pour une seule frame basé sur yaw + pitch.
-    """
-    yaw_score   = _angle_to_score(abs(yaw),   YAW_WARN,   YAW_CRIT)
-    pitch_score = _angle_to_score(abs(pitch), PITCH_WARN, PITCH_CRIT)
-    return (yaw_score * 0.65) + (pitch_score * 0.35)
-
-
-def _angle_to_score(angle: float, warn: float, crit: float) -> float:
-    """
-    Interpolation linéaire par morceaux :
-      [0, warn]      → [0.0, 0.3]
-      [warn, crit]   → [0.3, 1.0]
-      > crit         → 1.0
-    """
-    if angle <= 0:
+    if not ctx.face_detected or not hasattr(ctx, 'nose_tip') or ctx.nose_tip is None:
         return 0.0
-    if angle >= crit:
-        return 1.0
-    if angle <= warn:
-        return 0.3 * (angle / warn)
-    t = (angle - warn) / (crit - warn)
-    return 0.3 + 0.7 * t
+        
+    try:
+        # Extract from your preprocess arrays
+        left_eye_outer = np.array(ctx.left_eye_points[3]) # idx 263
+        right_eye_outer = np.array(ctx.right_eye_points[3]) # idx 33
+        left_mouth = np.array(ctx.mouth_points[2]) # idx 78
+        right_mouth = np.array(ctx.mouth_points[3]) # idx 308
+        
+        nose = np.array(ctx.nose_tip) # idx 1
+        chin = np.array(ctx.chin)     # idx 152
+        
+        h, w = ctx.raw_frame.shape[:2]
+        
+        # 1. Map 2D image points (Order matches model_points exactly)
+        image_points = np.array([
+            nose, left_eye_outer, right_eye_outer, left_mouth, right_mouth, chin
+        ], dtype=np.float64)
+        
+        # 2. Standard 3D human head model
+        model_points = np.array([
+            [0.0, 0.0, 0.0],        # Nose
+            [-0.15, -0.05, 0.0],    # Left eye (image left)
+            [0.15, -0.05, 0.0],     # Right eye (image right)
+            [-0.1, 0.15, 0.0],      # Left mouth (image left)
+            [0.1, 0.15, 0.0],       # Right mouth (image right)
+            [0.0, 0.25, 0.0]        # Chin
+        ], dtype=np.float64)
+        
+        # 3. Camera matrix
+        focal_length = w
+        camera_matrix = np.array([
+            [focal_length, 0, w / 2],
+            [0, focal_length, h / 2],
+            [0, 0, 1]
+        ], dtype=np.float64)
+        dist_coeffs = np.zeros((4, 1))
+        
+        # 4. Solve PnP
+        success, r_vec, t_vec = cv2.solvePnP(
+            model_points, image_points, camera_matrix, dist_coeffs, 
+            flags=cv2.SOLVEPNP_ITERATIVE
+        )
+        
+        if not success: return 0.0
+        
+        # 5. Get Rotation Matrix
+        r_mat, _ = cv2.Rodrigues(r_vec)
+        
+        # ==========================================
+        # THE FIX: Use OpenCV's stable decomposition
+        # ==========================================
+        # cv2.RQDecomp3x3 returns: (retVal, mtxR, mtxQ, Qx, Qy, Qz)
+        # Qx = Pitch (looking up/down)
+        # Qy = Yaw   (looking left/right)
+        # Qz = Roll  (tilting head)
+        _, _, _, pitch, yaw, roll = cv2.RQDecomp3x3(r_mat)
+        
+        # 6. Normalize to 0.0 - 1.0
+        yaw_score = min(abs(yaw) / yaw_thresh, 1.0)
+        pitch_score = min(abs(pitch) / pitch_thresh, 1.0)
+        roll_score = min(abs(roll) / roll_thresh, 1.0)
+        print("yaw_score", yaw_score)
+        print("pitch_score", pitch_score)
+        print("roll_score", roll_score)
+        # Debug prints (you can remove these once confirmed working)
+        # print(f"Yaw: {yaw:.1f} ({yaw_score:.2f}) | Pitch: {pitch:.1f} ({pitch_score:.2f}) | Roll: {roll:.1f} ({roll_score:.2f})")
+        
+        return max(yaw_score, pitch_score, roll_score)
+        
+    except Exception:
+        return 0.0 

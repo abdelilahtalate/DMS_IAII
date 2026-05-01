@@ -2,10 +2,10 @@ import time
 from typing import Dict, Any
 
 from ai.fatigue.detector import FatigueDetector
-from ai.distraction.detector import DistractionDetector
+from ai.distraction.detector import DistractDetector
 # from ai.gaze.detector import GazeDetector
 # from ai.emotion.detector import EmotionDetector
-from ai.phone_usage.detector import PhoneUsageDetector
+# from ai.phone_usage.detector import PhoneUsageDetector
 
 
 class Aggregator:
@@ -16,11 +16,10 @@ class Aggregator:
         # 🧠 ALL MODELS (TEMPORAL)
         # =========================
         self.models = {
-            # "fatigue": FatigueDetector(buffer_size=30, stride=5),
-            # "distraction": DistractionDetector(buffer_size=20, stride=3),
-            # "gaze": GazeDetector(buffer_size=10, stride=1),
+             "fatigue": FatigueDetector(),
+             "distraction": DistractDetector(),
             # "emotion": EmotionDetector(buffer_size=15, stride=2),
-             "phone": PhoneUsageDetector(buffer_size=1, stride=1),
+            #  "phone": PhoneUsageDetector(buffer_size=1, stride=1),
         }
 
         # =========================

@@ -1,3 +1,3 @@
-from .detector import DistractionDetector
+from .detector import DistractDetector
 
-__all__ = ["DistractionDetector"]
+__all__ = ["DistractDetector"]
