@@ -4,7 +4,7 @@ import websockets
 import json
 
 async def stream_video():
-    uri = "ws://localhost:8000/stream"
+    uri = "ws://localhost:8002/stream"
     
     # Open local webcam (0 is usually the default laptop webcam)
     cap = cv2.VideoCapture(0)

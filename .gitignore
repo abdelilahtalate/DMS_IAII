@@ -45,3 +45,54 @@ build/
 *.ipynb
 frame_dump.txt
 dmss/
+esp32/
+# Android
+# -------
+build/
+.gradle/
+local.properties
+*.iml
+.idea/
+.idea/workspace.xml
+.idea/libraries/
+.idea/modules.xml
+.idea/assetWizardSettings.xml
+.idea/navEditor.xml
+.idea/caches/
+.idea/runConfigurations/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aar
+*.jks
+*.keystore
+
+# Python
+# ------
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.coverage
+htmlcov/
+nosetests.xml
+coverage.xml
+*.db
+*.sqlite3
+
+# OS / IDE
+# --------
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*.tmp
+.vscode/
+.history/

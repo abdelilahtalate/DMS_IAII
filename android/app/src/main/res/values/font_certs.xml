@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="com_google_android_gms_fonts_certs">
+        <item>@array/com_google_android_gms_fonts_certs_dev</item>
+        <item>@array/com_google_android_gms_fonts_certs_prod</item>
+    </array>
+    <string-array name="com_google_android_gms_fonts_certs_dev">
+        <item>
+            MIIEqDCCApCgAwIBAgIJAN5m+9C6Yq79MA0GCSqGSIb3DQEBBQUAMUMxGzAZBgNVBAoT
+            R09PR0xFIElOQ09SUE9SQVRFRDEhMB8GA1UEAxMYR09PR0xFIElOQ09SUE9SQVRFRCBD
+            RVJUVEVTVDAeFw0xNTA0MTYxMzUxMjlaFw0yNTA0MTMxMzUxMjlaMUMxGzAZBgNVBAoT
+            R09PR0xFIElOQ09SUE9SQVRFRDEhMB8GA1UEAxMYR09PR0xFIElOQ09SUE9SQVRFRCBD
+            RVJUVEVTVDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALuO0oR9S99mKz4r
+            f3p/Jt8fX0e6Y/0K9Fh7jS6V4v/XzYv+P6Lh7Dk6q4Y1XwYyP4u9r9z2e3zZ8D6v0/
+            7l8f8J/6f7r+O8O8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+        </item>
+    </string-array>
+    <string-array name="com_google_android_gms_fonts_certs_prod">
+        <item>
+            MIIEqDCCApCgAwIBAgIJAN5m+9C6Yq79MA0GCSqGSIb3DQEBBQUAMUMxGzAZBgNVBAoT
+            R09PR0xFIElOQ09SUE9SQVRFRDEhMB8GA1UEAxMYR09PR0xFIElOQ09SUE9SQVRFRCBD
+            RVJUVEVTVDAeFw0xNTA0MTYxMzUxMjlaFw0yNTA0MTMxMzUxMjlaMUMxGzAZBgNVBAoT
+            R09PR0xFIElOQ09SUE9SQVRFRDEhMB8GA1UEAxMYR09PR0xFIElOQ09SUE9SQVRFRCBD
+            RVJUVEVTVDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALuO0oR9S99mKz4r
+            f3p/Jt8fX0e6Y/0K9Fh7jS6V4v/XzYv+P6Lh7Dk6q4Y1XwYyP4u9r9z2e3zZ8D6v0/
+            7l8f8J/6f7r+O8O8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+            v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8v8
+        </item>
+    </string-array>
+</resources>
