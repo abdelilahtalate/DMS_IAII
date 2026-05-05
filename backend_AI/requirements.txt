@@ -1,9 +1,8 @@
+mediapipe==0.10.5
 fastapi
 uvicorn
 websockets
-opencv-python
-numpy
-mediapipe==0.10.33
+ultralytics
 python-dotenv
 # ── Web Framework ──────────────────────────────────────────
 fastapi==0.115.0
