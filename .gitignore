@@ -86,7 +86,7 @@ nosetests.xml
 coverage.xml
 *.db
 *.sqlite3
-
+android_env/
 # OS / IDE
 # --------
 .DS_Store
