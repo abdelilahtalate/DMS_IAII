@@ -1,10 +1,15 @@
 package com.example.dms_app.feature_home.presentation
 
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import java.util.Calendar
+import androidx.lifecycle.viewModelScope
+import com.example.dms_app.core.network.ApiClient
+import com.example.dms_app.core.network.ApiService
+import com.example.dms_app.feature_home.data.repository.HomeRepositoryImpl
+import com.example.dms_app.feature_home.domain.repository.HomeRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 data class TodayStats(
     val trips: Int,
@@ -23,44 +28,84 @@ data class TripSummary(
 
 class HomeViewModel : ViewModel() {
 
-    private val _driverName = MutableStateFlow("Alex Chen")
+    private val repository: HomeRepository = HomeRepositoryImpl(ApiClient.apiService)
+
+    private val _driverName = MutableStateFlow("Driver")
     val driverName: StateFlow<String> = _driverName.asStateFlow()
 
     private val _greeting = MutableStateFlow(getGreetingMessage())
     val greeting: StateFlow<String> = _greeting.asStateFlow()
 
-    private val _focusScore = MutableStateFlow(80)
+    private val _focusScore = MutableStateFlow(0)
     val focusScore: StateFlow<Int> = _focusScore.asStateFlow()
 
     private val _todayStats = MutableStateFlow(
-        TodayStats(
-            trips = 3,
-            distance = "48 km",
-            duration = "1h 24m",
-            scoreChange = "+12"
-        )
+        TodayStats(0, "0 km", "0m", "+0")
     )
     val todayStats: StateFlow<TodayStats> = _todayStats.asStateFlow()
 
-    private val _recentTrips = MutableStateFlow(
-        listOf(
-            TripSummary(
-                id = "1",
-                name = "Morning Commute",
-                timeRange = "08:15 - 08:42",
-                scoreChange = "+15",
-                isPositive = true
-            ),
-            TripSummary(
-                id = "2",
-                name = "Grocery Store",
-                timeRange = "14:20 - 14:35",
-                scoreChange = "-2",
-                isPositive = false
-            )
-        )
-    )
+    private val _recentTrips = MutableStateFlow<List<TripSummary>>(emptyList())
     val recentTrips: StateFlow<List<TripSummary>> = _recentTrips.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    init {
+        loadData()
+    }
+
+    private fun loadData() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // Using a default userId of 1
+                val profile = repository.getProfile(1)
+                _driverName.value = profile.name
+                
+                val insights = repository.getInsights(1)
+                _focusScore.value = insights.stats.averageScore
+                _todayStats.value = TodayStats(
+                    trips = insights.stats.totalTrips,
+                    distance = "48 km", // Mocking distance for now
+                    duration = "1h 24m", // Mocking duration for now
+                    scoreChange = if (insights.stats.scoreChange >= 0) "+${insights.stats.scoreChange}" else "${insights.stats.scoreChange}"
+                )
+
+                val sessions = repository.getRecentTrips(1)
+                _recentTrips.value = sessions.take(5).map { session ->
+                    TripSummary(
+                        id = session.id.toString(),
+                        name = "Trip #${session.id}",
+                        timeRange = formatTimeRange(session.start_time, session.end_time),
+                        scoreChange = if (session.alert_count == 0) "+10" else "-${session.alert_count * 2}",
+                        isPositive = session.alert_count == 0
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    private fun formatTimeRange(start: String, end: String?): String {
+        return try {
+            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val startDate = inputFormat.parse(start)
+            val startTime = outputFormat.format(startDate!!)
+            val endTime = if (end != null) {
+                val endDate = inputFormat.parse(end)
+                outputFormat.format(endDate!!)
+            } else {
+                "Ongoing"
+            }
+            "$startTime - $endTime"
+        } catch (e: Exception) {
+            "Unknown"
+        }
+    }
 
     private fun getGreetingMessage(): String {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)

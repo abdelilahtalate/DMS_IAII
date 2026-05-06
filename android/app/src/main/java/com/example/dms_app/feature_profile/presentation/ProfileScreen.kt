@@ -33,6 +33,7 @@ import com.example.dms_app.feature_profile.domain.UserProfile
 @Composable
 fun ProfileScreen(
     onToggleTheme: () -> Unit,
+    isDarkTheme: Boolean = true,
     viewModel: ProfileViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {

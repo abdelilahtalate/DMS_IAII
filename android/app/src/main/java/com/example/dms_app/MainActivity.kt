@@ -30,7 +30,10 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = com.example.dms_app.core.ui.theme.LocalAppColors.current.background
                 ) {
-                    AppNavGraph(onToggleTheme = themeViewModel::toggleTheme)
+                    AppNavGraph(
+                        appTheme = appTheme,
+                        onToggleTheme = themeViewModel::toggleTheme
+                    )
                 }
             }
         }

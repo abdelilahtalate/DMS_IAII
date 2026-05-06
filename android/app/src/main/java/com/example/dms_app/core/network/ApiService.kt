@@ -3,6 +3,7 @@ package com.example.dms_app.core.network
 import retrofit2.Response
 import retrofit2.http.*
 import okhttp3.ResponseBody
+import com.google.gson.annotations.SerializedName
 
 data class SignupRequest(
     val full_name: String,
@@ -18,8 +19,9 @@ data class LoginRequest(
 )
 
 data class AuthResponse(
-    val message: String,
-    val access_token: String
+    val message: String?,
+    val access_token: String?,
+    val error: String? = null
 )
 data class PairRequest(
     val device_id: String,
@@ -71,6 +73,62 @@ data class ProfileDeviceCreate(
     val isConnected: Boolean = false
 )
 
+data class SessionSummaryResponse(
+    val id: Int,
+    val user_id: Int,
+    val device_id: Int,
+    val status: String,
+    val start_time: String,
+    val end_time: String? = null,
+    val alert_count: Int,
+    val location_count: Int
+)
+
+data class DayScore(
+    val day: String,
+    val score: Int
+)
+
+data class InsightStats(
+    val averageScore: Int,
+    val scoreChange: Int,
+    val bestDay: String,
+    val bestScore: Int,
+    val totalTrips: Int,
+    val eventCount: Int
+)
+
+data class InsightOverview(
+    val stats: InsightStats,
+    val dayScores: List<DayScore>
+)
+
+data class SessionStart(
+    val user_id: Int,
+    val device_id: String
+)
+
+data class SessionResponse(
+    @SerializedName("id")
+    val session_id: Int,
+    val status: String,
+    val start_time: String
+)
+
+data class LocationCreate(
+    val session_id: Int,
+    val latitude: Double,
+    val longitude: Double,
+    val speed: Double
+)
+
+data class AlertCreate(
+    val session_id: Int,
+    val alert_type: String,
+    val latitude: Double,
+    val longitude: Double
+)
+
 interface ApiService {
 
     @POST("api/v1/auth/signup")
@@ -116,4 +174,24 @@ interface ApiService {
         @Path("user_id") userId: Int,
         @Body data: ProfileDeviceCreate
     ): ProfileDeviceResponse
+
+    // Session Endpoints
+    @POST("api/v1/sessions/start")
+    suspend fun startSession(@Body data: SessionStart): SessionResponse
+
+    @POST("api/v1/sessions/stop/{session_id}")
+    suspend fun stopSession(@Path("session_id") sessionId: Int): StatusResponse
+
+    @POST("api/v1/sessions/location")
+    suspend fun logLocation(@Body data: LocationCreate): StatusResponse
+
+    @POST("api/v1/sessions/alert")
+    suspend fun logAlert(@Body data: AlertCreate): StatusResponse
+
+    @GET("api/v1/sessions/")
+    suspend fun listSessions(@Query("user_id") userId: Int? = null): List<SessionSummaryResponse>
+
+    // Insight Endpoints
+    @GET("api/v1/insights/{user_id}/overview")
+    suspend fun getInsightOverview(@Path("user_id") userId: Int): InsightOverview
 }

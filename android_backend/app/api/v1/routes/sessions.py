@@ -18,8 +18,11 @@ drive_service = DriveService()
 
 @router.post("/start")
 def start_session(data: SessionStart, db: Session = Depends(get_db)):
+    print(f"DEBUG: start_session call - user_id={data.user_id}, device_id='{data.device_id}'")
     result = drive_service.start_session(db, data)
+    print(f"DEBUG: result={result}")
     if isinstance(result, dict) and "error" in result:
+        print(f"DEBUG: Returning 404 because of error: {result['error']}")
         raise HTTPException(status_code=404, detail=result["error"])
     return result
 

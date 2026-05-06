@@ -19,15 +19,21 @@ import com.example.dms_app.core.ui.components.BottomNavBar
 import com.example.dms_app.core.ui.components.NavDestination
 import com.example.dms_app.feature_livedrive.presentation.LiveDriveScreen
 
+import com.example.dms_app.core.ui.theme.AppTheme
+
 @Composable
 fun MainScreen(
     rootNavController: NavHostController,
     previewUrl: String,
+    appTheme: AppTheme,
     onToggleTheme: () -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    
+    // Scoped to MainScreen lifecycle to persist drive state across tabs
+    val liveDriveVm: com.example.dms_app.feature_livedrive.presentation.LiveDriveViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
     val currentDestination = when {
         currentRoute == "dashboard" -> NavDestination.HOME
@@ -53,12 +59,15 @@ fun MainScreen(
                     onStartDrive = {
                         navController.navigate("livedrive")
                     },
+                    isDarkTheme = appTheme == AppTheme.DARK,
+                    onToggleTheme = onToggleTheme,
                     modifier = Modifier.padding(bottom = 90.dp)
                 )
             }
             
             composable("livedrive") {
                 LiveDriveScreen(
+                    vm = liveDriveVm,
                     onNavigateToPreview = {
                         val encoded = URLEncoder.encode(previewUrl, StandardCharsets.UTF_8.toString())
                         rootNavController.navigate("preview/$encoded")
@@ -94,6 +103,7 @@ fun MainScreen(
             composable("profile") {
                 com.example.dms_app.feature_profile.presentation.ProfileScreen(
                     onToggleTheme = onToggleTheme,
+                    isDarkTheme = appTheme == AppTheme.DARK,
                     modifier = Modifier.padding(bottom = 90.dp)
                 )
             }

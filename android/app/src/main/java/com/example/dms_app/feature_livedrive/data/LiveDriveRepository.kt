@@ -23,6 +23,22 @@ class LiveDriveRepository {
         return ApiClient.apiService.stopAnalysis()
     }
 
+    suspend fun startSession(userId: Int, deviceId: String): com.example.dms_app.core.network.SessionResponse {
+        return ApiClient.apiService.startSession(com.example.dms_app.core.network.SessionStart(userId, deviceId))
+    }
+
+    suspend fun stopSession(sessionId: Int): StatusResponse {
+        return ApiClient.apiService.stopSession(sessionId)
+    }
+
+    suspend fun logLocation(sessionId: Int, lat: Double, lon: Double, speed: Double): StatusResponse {
+        return ApiClient.apiService.logLocation(com.example.dms_app.core.network.LocationCreate(sessionId, lat, lon, speed))
+    }
+
+    suspend fun logAlert(sessionId: Int, alertType: String, lat: Double, lon: Double): StatusResponse {
+        return ApiClient.apiService.logAlert(com.example.dms_app.core.network.AlertCreate(sessionId, alertType, lat, lon))
+    }
+
     fun observeAiResults(): Flow<String> = callbackFlow {
         val request = Request.Builder()
             .url("${AppConfig.WS_BASE_URL}api/v1/ai/stream_analytics")

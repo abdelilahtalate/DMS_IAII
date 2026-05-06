@@ -39,9 +39,9 @@ import kotlin.math.sin
 @Composable
 fun LiveDriveScreen(
     onNavigateToPreview: () -> Unit,
+    vm: LiveDriveViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val vm: LiveDriveViewModel = viewModel()
     val state by vm.state.collectAsState()
     val colors = LocalAppColors.current
     val context = LocalContext.current

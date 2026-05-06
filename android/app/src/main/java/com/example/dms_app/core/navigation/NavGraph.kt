@@ -16,8 +16,13 @@ import  com.example.dms_app.core.navigation.MainScreen
 
 import com.example.dms_app.feature_auth.presentation.onboarding.OnboardingScreen
 
+import com.example.dms_app.core.ui.theme.AppTheme
+
 @Composable
-fun AppNavGraph(onToggleTheme: () -> Unit) {
+fun AppNavGraph(
+    appTheme: AppTheme,
+    onToggleTheme: () -> Unit
+) {
 
     val navController = rememberNavController()
 
@@ -109,6 +114,7 @@ fun AppNavGraph(onToggleTheme: () -> Unit) {
             MainScreen(
                 rootNavController = navController,
                 previewUrl = previewUrl,
+                appTheme = appTheme,
                 onToggleTheme = onToggleTheme
             )
         }

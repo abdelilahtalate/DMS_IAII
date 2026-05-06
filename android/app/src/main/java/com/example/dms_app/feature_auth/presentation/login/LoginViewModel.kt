@@ -45,8 +45,16 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
                     _state.value.password)
                 )
 
+                if (result.error != null) {
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        error = result.error
+                    )
+                    return@launch
+                }
+
                 // Save token
-                tokenManager.saveToken(result.access_token)
+                tokenManager.saveToken(result.access_token ?: "")
 
                 _state.value = _state.value.copy(
                     isLoading = false,

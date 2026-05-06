@@ -61,6 +61,9 @@ class LiveDriveViewModel : ViewModel() {
     private var monitoringJob: Job? = null
     private var timerJob: Job? = null
     private var speedJob: Job? = null
+    private var locationSyncJob: Job? = null
+    
+    private var currentSessionId: Int? = null
 
     fun toggleMonitoring() {
         viewModelScope.launch {
@@ -68,7 +71,13 @@ class LiveDriveViewModel : ViewModel() {
                 if (_state.value.isMonitoring) {
                     endDrive()
                 } else {
+                    // Start Session on Backend
+                    val sessionResponse = repository.startSession(userId = 1, deviceId = "ESP_001")
+                    currentSessionId = sessionResponse.session_id
+                    
+                    // Start AI Analysis
                     startUseCase()
+                    
                     _state.value = _state.value.copy(
                         isMonitoring = true,
                         elapsedSeconds = 0,
@@ -78,6 +87,7 @@ class LiveDriveViewModel : ViewModel() {
                     startListening()
                     startTimer()
                     startSpeedTracking()
+                    startLocationSync()
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = e.message)
@@ -111,8 +121,18 @@ class LiveDriveViewModel : ViewModel() {
 
                     if (newStatus == DriveStatus.ALERT) {
                         _alertEvent.emit(Unit)
+                        logAlertOnBackend("DISTRACTION")
                     }
                 }
+        }
+    }
+
+    private fun logAlertOnBackend(type: String) {
+        val sessionId = currentSessionId ?: return
+        viewModelScope.launch {
+            try {
+                repository.logAlert(sessionId, type, 0.0, 0.0) // Mock lat/lon for now
+            } catch (e: Exception) { }
         }
     }
 
@@ -137,14 +157,32 @@ class LiveDriveViewModel : ViewModel() {
         }
     }
 
+    private fun startLocationSync() {
+        locationSyncJob?.cancel()
+        locationSyncJob = viewModelScope.launch {
+            while (true) {
+                delay(5000) // Sync location every 5 seconds
+                val sessionId = currentSessionId ?: continue
+                try {
+                    repository.logLocation(sessionId, 0.0, 0.0, _state.value.speed.toDouble())
+                } catch (e: Exception) { }
+            }
+        }
+    }
+
     fun endDrive() {
         viewModelScope.launch {
             try {
+                currentSessionId?.let { repository.stopSession(it) }
                 stopUseCase()
             } catch (e: Exception) { }
+            
             monitoringJob?.cancel()
             timerJob?.cancel()
             speedJob?.cancel()
+            locationSyncJob?.cancel()
+            currentSessionId = null
+            
             _state.value = _state.value.copy(
                 isMonitoring = false,
                 lastResult = null,
