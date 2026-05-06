@@ -18,7 +18,7 @@ data class AiResultWrapper(
     val scores: AiResult
 )
 
-data class HomeUiState(
+data class LiveDriveUiState(
     val isMonitoring: Boolean = false,
     val lastResult: AiResult? = null,
     val error: String? = null

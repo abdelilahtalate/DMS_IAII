@@ -101,6 +101,8 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
             timestamp=timestamp,
             raw_frame=np.zeros((FRAME_H, FRAME_W, 3), np.uint8),
             face_crop=None,
+            nose_tip=None,
+            chin=None,
             left_eye_points=None,
             right_eye_points=None,
             iris_points=None,
@@ -127,6 +129,8 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
     right_eye = None
     iris = None
     mouth = None
+    nose_tip = None
+    chin = None
     face_crop = None
     face_detected = False
 
@@ -142,6 +146,8 @@ def preprocess(raw_jpeg: bytes) -> FrameContext:
                 timestamp=timestamp,
                 raw_frame=image,
                 face_crop=None,
+                nose_tip=None,
+                chin=None,
                 left_eye_points=None,
                 right_eye_points=None,
                 iris_points=None,

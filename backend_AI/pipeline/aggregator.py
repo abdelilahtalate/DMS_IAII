@@ -17,7 +17,7 @@ class Aggregator:
         self.models = {
              "fatigue": FatigueDetector(),
              "distraction": DistractDetector(),
-            #  "emotion": EmotionDetector(buffer_size=15, stride=2,model_path= "C:\\Users\\crasy\\OneDrive\\Bureau\\s2 ia2i\\mobile\\DMS\\backend\\ai\\phone_usage\\yolov8n.pt"),
+            # "emotion": EmotionDetector(buffer_size=15, stride=2,model_path= "C:\\Users\\crasy\\OneDrive\\Bureau\\s2 ia2i\\mobile\\DMS\\backend\\ai\\phone_usage\\yolov8n.pt"),
             # "phone": PhoneDetector(),
         }
 
@@ -27,10 +27,44 @@ class Aggregator:
         self.last_scores: Dict[str, Any] = {}
 
     # =========================================================
+    # 🎯 FOCUS CALCULATION
+    # =========================================================
+    def _calculate_focus(self, scores: Dict[str, Any]) -> float:
+        """
+        Calculates a global focus score (0-100) based on individual detector scores.
+        Uses specific coefficients to weigh the importance of each metric.
+        """
+        coefficients = {
+            "fatigue": 0.4,
+            "distraction": 0.6,
+            "phone": 0.8,
+            "emotion": 0.2
+        }
+        
+        weighted_score_sum = 0.0
+        active_coeff_sum = 0.0
+        
+        for name, data in scores.items():
+            if name in coefficients and data and "score" in data:
+                score = data["score"]
+                weight = coefficients[name]
+                
+                weighted_score_sum += score * weight
+                active_coeff_sum += weight
+        
+        if active_coeff_sum == 0:
+            return 100.0 # Default to fully focused if no data
+            
+        # Focus is the inverse of the weighted disturbance
+        avg_disturbance = weighted_score_sum / active_coeff_sum
+        focus_value = (1.0 - avg_disturbance) * 100
+        
+        return round(max(0.0, min(100.0, focus_value)), 2)
+
+    # =========================================================
     # 🚀 MAIN ENTRY POINT
     # =========================================================
     def process(self, frame_context):
-
         frame_id = frame_context.frame_id
         timestamp = frame_context.timestamp
         
@@ -53,13 +87,22 @@ class Aggregator:
 
             # always return last known value (stability)
             scores[name] = self.last_scores.get(name)
-
+            
+        # =========================
+        # 🎯 CALCULATE GLOBAL FOCUS
+        # =========================
+        # If no face is detected, we might want to lower the focus score or keep it at 0
+        focus = self._calculate_focus(scores) if frame_context.face_detected else 0.0
+        
         # =========================
         # 📦 FINAL JSON OUTPUT
         # =========================
         return {
             "frame_id": frame_id,
             "timestamp": timestamp,
+            "face_detected": frame_context.face_detected,
+            "status": "active" if frame_context.face_detected else "no face detected",
+            "focus": focus,
             "scores": scores
         }
 
@@ -68,20 +111,3 @@ class Aggregator:
 # SINGLETON INSTANCE
 # =========================
 aggregator = Aggregator()
-# {
-#   "frame_id": "b3f1c2a8-91d4-4a2e-9c1b-6f8d9e2a1234",
-#   "timestamp": 1713948123.52,
-#   "scores": {
-#     "fatigue": 0.78,
-#     "distraction": 0.34,
-#     "gaze": {
-#       "direction": "left",
-#       "confidence": 0.82
-#     },
-#     "emotion": {
-#       "class": "neutral",
-#       "confidence": 0.91
-#     },
-#     "phone": 0.12
-#   }
-# }

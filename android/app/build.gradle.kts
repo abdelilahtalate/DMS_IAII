@@ -69,5 +69,5 @@ dependencies {
     implementation("androidx.compose.ui:ui-text-google-fonts:1.6.8")
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
-
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 }

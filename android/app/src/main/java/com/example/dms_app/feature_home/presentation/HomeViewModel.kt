@@ -1,86 +1,73 @@
 package com.example.dms_app.feature_home.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.dms_app.feature_home.data.HomeRepository
-import com.example.dms_app.feature_home.domain.StartAnalysisUseCase
-import com.example.dms_app.feature_home.domain.StopAnalysisUseCase
-import com.google.gson.Gson
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.asStateFlow
+import java.util.Calendar
 
-data class FatigueData(
-    val is_fatigued: Boolean,
-    val score: Float
+data class TodayStats(
+    val trips: Int,
+    val distance: String,
+    val duration: String,
+    val scoreChange: String
 )
 
-data class DistractionData(
-    val is_distracted: Boolean,
-    val score: Float
-)
-
-data class AiResult(
-    val fatigue: FatigueData,
-    val distraction: DistractionData
-)
-
-data class AiResultWrapper(
-    val scores: AiResult
-)
-
-data class HomeUiState(
-    val isMonitoring: Boolean = false,
-    val lastResult: AiResult? = null,
-    val error: String? = null
+data class TripSummary(
+    val id: String,
+    val name: String,
+    val timeRange: String,
+    val scoreChange: String,
+    val isPositive: Boolean
 )
 
 class HomeViewModel : ViewModel() {
 
-    private val repository = HomeRepository()
-    private val startUseCase = StartAnalysisUseCase(repository)
-    private val stopUseCase = StopAnalysisUseCase(repository)
+    private val _driverName = MutableStateFlow("Alex Chen")
+    val driverName: StateFlow<String> = _driverName.asStateFlow()
 
-    private val _state = MutableStateFlow(HomeUiState())
-    val state: StateFlow<HomeUiState> = _state
+    private val _greeting = MutableStateFlow(getGreetingMessage())
+    val greeting: StateFlow<String> = _greeting.asStateFlow()
 
-    private var monitoringJob: Job? = null
+    private val _focusScore = MutableStateFlow(80)
+    val focusScore: StateFlow<Int> = _focusScore.asStateFlow()
 
-    fun toggleMonitoring() {
-        viewModelScope.launch {
-            try {
-                if (_state.value.isMonitoring) {
-                    stopUseCase()
-                    monitoringJob?.cancel()
-                    _state.value = _state.value.copy(isMonitoring = false, lastResult = null)
-                } else {
-                    startUseCase()
-                    _state.value = _state.value.copy(isMonitoring = true)
-                    startListening()
-                }
-            } catch (e: Exception) {
-                _state.value = _state.value.copy(error = e.message)
-            }
-        }
-    }
+    private val _todayStats = MutableStateFlow(
+        TodayStats(
+            trips = 3,
+            distance = "48 km",
+            duration = "1h 24m",
+            scoreChange = "+12"
+        )
+    )
+    val todayStats: StateFlow<TodayStats> = _todayStats.asStateFlow()
 
-    private fun startListening() {
-        monitoringJob?.cancel()
-        monitoringJob = viewModelScope.launch {
-            repository.observeAiResults()
-                .catch { e ->
-                    _state.value = _state.value.copy(error = "Connection lost: ${e.message}")
-                }
-                .collect { json ->
-                    try {
-                        val wrapper = Gson().fromJson(json, AiResultWrapper::class.java)
-                        _state.value = _state.value.copy(lastResult = wrapper.scores)
-                    } catch (e: Exception) {
-                        // Handle parse error if needed
-                    }
-                }
+    private val _recentTrips = MutableStateFlow(
+        listOf(
+            TripSummary(
+                id = "1",
+                name = "Morning Commute",
+                timeRange = "08:15 - 08:42",
+                scoreChange = "+15",
+                isPositive = true
+            ),
+            TripSummary(
+                id = "2",
+                name = "Grocery Store",
+                timeRange = "14:20 - 14:35",
+                scoreChange = "-2",
+                isPositive = false
+            )
+        )
+    )
+    val recentTrips: StateFlow<List<TripSummary>> = _recentTrips.asStateFlow()
+
+    private fun getGreetingMessage(): String {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return when (hour) {
+            in 0..11 -> "Good morning"
+            in 12..16 -> "Good afternoon"
+            else -> "Good evening"
         }
     }
 }

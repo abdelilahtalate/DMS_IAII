@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Response
-from device import devices_db
+from fastapi import APIRouter, Response, Depends
+from db import SessionLocal, Device
 import cv2
 import camera
 from fastapi.responses import StreamingResponse
@@ -37,7 +37,7 @@ async def stream_to_backend():
                             # Receive the analysis JSON from the backend
                             result_str = await websocket.recv()
                             result = json.loads(result_str)
-                            print(f"[Simulation] AI Result: {result['scores']}")
+                            print(f"[Simulation] AI Result: {result}")
                             
                             # Push results to Main Backend (8000) for the Android WebSocket bridge
                             try:
@@ -46,7 +46,7 @@ async def stream_to_backend():
                                 pass
                     
                     # Control the frame rate (e.g., ~20 FPS)
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.03)
         except asyncio.CancelledError:
             print("[Simulation] Analysis task stopped.")
             break
@@ -72,32 +72,43 @@ def gen_frames():
         # Limit frame rate to ~30 FPS to save bandwidth/CPU
         time.sleep(0.03)
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @router.get("/device/{device_id}")
-def get_device(device_id: str):
-    device = devices_db.get(device_id)
+def get_device(device_id: str, db = Depends(get_db)):
+    device = db.query(Device).filter(Device.device_id == device_id).first()
 
     if not device:
         return {"error": "device not found"}
 
-    return device
+    return {
+        "device_id": device.device_id,
+        "secret": device.secret,
+        "paired": device.paired
+    }
 
 @router.post("/pair")
-def pair_device(device_id: str, secret: str):
-
-    device = devices_db.get(device_id)
+def pair_device(device_id: str, secret: str, db = Depends(get_db)):
+    device = db.query(Device).filter(Device.device_id == device_id).first()
 
     if not device:
         return {"error": "device not found"}
 
-    if device["secret"] != secret:
+    if device.secret != secret:
         return {"error": "invalid secret"}
 
-    device["paired"] = True
+    device.paired = True
+    db.commit()
 
     return {
         "message": "device paired successfully",
         "device_id": device_id
-    }    
+    }
 
 @router.get("/preview")
 def preview():

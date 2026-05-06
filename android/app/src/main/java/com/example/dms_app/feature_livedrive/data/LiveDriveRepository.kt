@@ -1,4 +1,4 @@
-package com.example.dms_app.feature_home.data
+package com.example.dms_app.feature_livedrive.data
 
 import com.example.dms_app.core.network.ApiClient
 import com.example.dms_app.core.network.StatusResponse
@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import okhttp3.*
 import java.util.concurrent.TimeUnit
 
-class HomeRepository {
+class LiveDriveRepository {
 
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)

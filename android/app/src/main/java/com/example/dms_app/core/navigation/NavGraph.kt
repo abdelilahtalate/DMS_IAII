@@ -9,10 +9,10 @@ import com.example.dms_app.feature_device.presentation.pairing.DevicePairingScre
 import com.example.dms_app.feature_device.presentation.qr_scan.QrScannerScreen
 import com.example.dms_app.feature_device.presentation.pairing.PairingScreen
 import com.example.dms_app.feature_drive.presentation.camera_preview.CameraPreviewScreen
-import com.example.dms_app.feature_home.presentation.HomeScreen
+import com.example.dms_app.feature_livedrive.presentation.LiveDriveScreen
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-
+import  com.example.dms_app.core.navigation.MainScreen
 
 import com.example.dms_app.feature_auth.presentation.onboarding.OnboardingScreen
 
@@ -103,12 +103,12 @@ fun AppNavGraph() {
             )
         }
 
+// ... in NavHost ...
         composable("home/{previewUrl}") { backStack ->
             val previewUrl = backStack.arguments?.getString("previewUrl")!!
-            HomeScreen(
-                onNavigateToPreview = {
-                    navController.navigate("preview/$previewUrl")
-                }
+            MainScreen(
+                rootNavController = navController,
+                previewUrl = previewUrl
             )
         }
 

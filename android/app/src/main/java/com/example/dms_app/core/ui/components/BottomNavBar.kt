@@ -1,168 +1,184 @@
 package com.example.dms_app.core.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dms_app.core.ui.theme.LocalAppColors
-import androidx.compose.animation.animateColorAsState
+
+enum class NavDestination { HOME, TRIPS, DRIVE, INSIGHTS, PROFILE }
+
+private data class NavItem(val dest: NavDestination, val icon: ImageVector, val label: String)
 
 @Composable
 fun BottomNavBar(
-    selectedRoute: String,
-    onRouteSelected: (String) -> Unit
+    current: NavDestination,
+    onNavigate: (NavDestination) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = LocalAppColors.current
-    
+
+    val leftItems = listOf(
+        NavItem(NavDestination.HOME, Icons.Rounded.Home, "Home"),
+        NavItem(NavDestination.TRIPS, Icons.Rounded.DirectionsCar, "Trips")
+    )
+    val rightItems = listOf(
+        NavItem(NavDestination.INSIGHTS, Icons.Rounded.BarChart, "Insights"),
+        NavItem(NavDestination.PROFILE, Icons.Rounded.Person, "Profile")
+    )
+
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp),
+            .height(90.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        Surface(
+        // ── Aurora glow behind drive button ───────────────────────────────
+        Box(
             modifier = Modifier
-                .wrapContentWidth()
-                .height(72.dp)
-                .clip(RoundedCornerShape(50))
-                .border(
-                    width = 1.dp,
-                    color = if (colors.isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(50)
-                ),
-            color = if (colors.isDark) colors.surface.copy(alpha = 0.85f) else colors.surface.copy(alpha = 0.95f),
-            tonalElevation = 8.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                NavItem(Icons.Default.Home, "Home", selectedRoute == "home") { onRouteSelected("home") }
-                NavItem(Icons.Default.Route, "Trips", selectedRoute == "trips") { onRouteSelected("trips") }
-                
-                DriveButton { onRouteSelected("drive") }
-                
-                NavItem(Icons.Default.BarChart, "Insights", selectedRoute == "insights") { onRouteSelected("insights") }
-                NavItem(Icons.Default.Person, "Profile", selectedRoute == "profile") { onRouteSelected("profile") }
-            }
-        }
-    }
-}
-
-@Composable
-fun NavItem(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val colors = LocalAppColors.current
-    val tint by animateColorAsState(if (isSelected) colors.cyan else colors.mutedForeground, label = "tint")
-    val scale by animateFloatAsState(if (isSelected) 1.0f else 0.9f, label = "scale")
-
-    Column(
-        modifier = Modifier
-            .width(60.dp)
-            .fillMaxHeight()
-            .clickable(onClick = onClick)
-            .scale(scale),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            color = tint,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
-        )
-    }
-}
-
-@Composable
-fun DriveButton(onClick: () -> Unit) {
-    val colors = LocalAppColors.current
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "scale"
-    )
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "alpha"
-    )
-
-    Box(
-        modifier = Modifier
-            .size(72.dp)
-            .offset(y = (-12).dp),
-        contentAlignment = Alignment.Center
-    ) {
-        // Pulse Effect
-        Canvas(modifier = Modifier.size(56.dp)) {
-            drawCircle(
-                color = colors.cyan.copy(alpha = 0.3f * pulseAlpha),
-                radius = (size.minDimension / 2) * pulseScale
-            )
-        }
-
-        Surface(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onClick),
-            color = Color.Transparent
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(colors.cyan, colors.cyan.copy(alpha = 0.7f))
+                .align(Alignment.TopCenter)
+                .size(width = 140.dp, height = 70.dp)
+                .blur(28.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            colors.cyan.copy(alpha = 0.40f),
+                            Color.Transparent
                         )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Start Drive",
-                    tint = Color.Black,
-                    modifier = Modifier.size(28.dp)
+                    )
+                )
+        )
+
+        // ── Pill bar ──────────────────────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .height(64.dp)
+                .clip(RoundedCornerShape(50))
+                .background(colors.surface.copy(alpha = 0.92f))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(50)),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            // Left items
+            leftItems.forEach { item ->
+                NavItemButton(
+                    item = item,
+                    isActive = current == item.dest,
+                    onClick = { onNavigate(item.dest) }
+                )
+            }
+
+            // Empty space for the center button
+            Spacer(modifier = Modifier.width(52.dp))
+
+            // Right items
+            rightItems.forEach { item ->
+                NavItemButton(
+                    item = item,
+                    isActive = current == item.dest,
+                    onClick = { onNavigate(item.dest) }
                 )
             }
         }
+
+        // Center Drive button (pops above bar via offset, unclipped)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 14.dp) // Lift it up instead of offset to avoid bounding box issues
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(Color(0xFF5EEAE0), Color(0xFF1BBDB5)),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+                    )
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { onNavigate(NavDestination.DRIVE) },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "Start Drive",
+                tint = Color.Black,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun NavItemButton(
+    item: NavItem,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = LocalAppColors.current
+    
+    val iconColor by animateColorAsState(
+        targetValue = if (isActive) colors.cyan else colors.mutedForeground,
+        animationSpec = tween(300),
+        label = "nav_color"
+    )
+    
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "nav_scale"
+    )
+
+    Column(
+        modifier = Modifier
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = item.icon,
+            contentDescription = item.label,
+            tint = iconColor,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = item.label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = iconColor
+        )
     }
 }

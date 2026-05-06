@@ -52,7 +52,7 @@ fun LoginScreen(
                 color = colors.foreground,
                 fontWeight = FontWeight.Bold
             )
-            
+
             Text(
                 text = "Sign in to continue monitoring",
                 style = MaterialTheme.typography.bodyMedium,
