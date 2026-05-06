@@ -27,7 +27,8 @@ class AuthService:
             token = create_access_token({"sub": email})
             return {
                 "message": "User created",
-                "access_token": token
+                "access_token": token,
+                "user_id": new_user.id
             }
         finally:
             db.close()
@@ -45,7 +46,8 @@ class AuthService:
             token = create_access_token({"sub": email})
             return {
                 "message": "Login successful",
-                "access_token": token
+                "access_token": token,
+                "user_id": db_user.id
             }
         finally:
             db.close()

@@ -22,18 +22,19 @@ import com.example.dms_app.feature_livedrive.presentation.LiveDriveScreen
 @Composable
 fun MainScreen(
     rootNavController: NavHostController,
-    previewUrl: String
+    previewUrl: String,
+    onToggleTheme: () -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val currentDestination = when (currentRoute) {
-        "dashboard" -> NavDestination.HOME
-        "livedrive" -> NavDestination.DRIVE
-        "trips" -> NavDestination.TRIPS
-        "insights" -> NavDestination.INSIGHTS
-        "profile" -> NavDestination.PROFILE
+    val currentDestination = when {
+        currentRoute == "dashboard" -> NavDestination.HOME
+        currentRoute == "livedrive" -> NavDestination.DRIVE
+        currentRoute == "trips" || currentRoute?.startsWith("trip_details") == true -> NavDestination.TRIPS
+        currentRoute == "insights" -> NavDestination.INSIGHTS
+        currentRoute == "profile" -> NavDestination.PROFILE
         else -> NavDestination.HOME
     }
 
@@ -46,6 +47,9 @@ fun MainScreen(
         ) {
             composable("dashboard") {
                 com.example.dms_app.feature_home.presentation.HomeScreen(
+                    onTripClick = { tripId ->
+                        navController.navigate("trip_details/$tripId")
+                    },
                     onStartDrive = {
                         navController.navigate("livedrive")
                     },
@@ -64,15 +68,34 @@ fun MainScreen(
             }
             
             composable("trips") {
-                PlaceholderScreen("Trips", Modifier.padding(bottom = 90.dp))
+                com.example.dms_app.feature_trips.presentation.TripsListScreen(
+                    onNavigateToDetails = { tripId ->
+                        navController.navigate("trip_details/$tripId")
+                    },
+                    modifier = Modifier.padding(bottom = 90.dp)
+                )
+            }
+            
+            composable("trip_details/{tripId}") { backStack ->
+                val tripId = backStack.arguments?.getString("tripId") ?: ""
+                com.example.dms_app.feature_trips.presentation.TripDetailsScreen(
+                    tripId = tripId,
+                    onBack = { navController.popBackStack() },
+                    modifier = Modifier.padding(bottom = 90.dp)
+                )
             }
             
             composable("insights") {
-                PlaceholderScreen("Insights", Modifier.padding(bottom = 90.dp))
+                com.example.dms_app.feature_insights.presentation.InsightsScreen(
+                    modifier = Modifier.padding(bottom = 90.dp)
+                )
             }
             
             composable("profile") {
-                PlaceholderScreen("Profile", Modifier.padding(bottom = 90.dp))
+                com.example.dms_app.feature_profile.presentation.ProfileScreen(
+                    onToggleTheme = onToggleTheme,
+                    modifier = Modifier.padding(bottom = 90.dp)
+                )
             }
         }
 
@@ -103,7 +126,14 @@ fun MainScreen(
 
 @Composable
 fun PlaceholderScreen(name: String, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.material3.Text(text = "$name Screen coming soon", style = androidx.compose.material3.MaterialTheme.typography.headlineMedium)
+    com.example.dms_app.core.ui.components.DriveMindBackground {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            val colors = com.example.dms_app.core.ui.theme.LocalAppColors.current
+            androidx.compose.material3.Text(
+                text = "$name Screen coming soon", 
+                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                color = colors.foreground
+            )
+        }
     }
 }

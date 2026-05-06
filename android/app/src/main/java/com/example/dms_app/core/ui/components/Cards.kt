@@ -10,6 +10,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -55,6 +59,7 @@ fun GlassCard(
 @Composable
 fun GradientCard(
     modifier: Modifier = Modifier,
+    showGlow: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colors = LocalAppColors.current
@@ -64,8 +69,20 @@ fun GradientCard(
         Brush.linearGradient(listOf(Color.White, colors.surface2))
     }
 
+    val glowModifier = if (showGlow && colors.isDark) {
+        Modifier.drawBehind {
+            drawRoundRect(
+                color = colors.cyan.copy(alpha = 0.15f),
+                size = size,
+                cornerRadius = CornerRadius(24.dp.toPx()),
+                blendMode = BlendMode.Screen
+            )
+        }
+    } else Modifier
+
     Box(
         modifier = modifier
+            .then(glowModifier)
             .clip(RoundedCornerShape(24.dp))
             .background(gradient)
             .border(1.dp, colors.border, RoundedCornerShape(24.dp))

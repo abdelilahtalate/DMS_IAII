@@ -41,6 +41,36 @@ data class StatusResponse(
     val status: String
 )
 
+data class UserProfileResponse(
+    val name: String,
+    val email: String,
+    val isPro: Boolean,
+    val totalTrips: Int,
+    val focusScore: Int,
+    val daysActive: Int
+)
+
+data class UserProfileUpdate(
+    val name: String? = null,
+    val email: String? = null,
+    val isPro: Boolean = false
+)
+
+data class ProfileDeviceResponse(
+    val id: String,
+    val name: String,
+    val type: String,
+    val isConnected: Boolean
+)
+
+data class ProfileDeviceCreate(
+    val id: String,
+    val name: String? = null,
+    val type: String = "CAMERA",
+    val secret: String = "profile-device",
+    val isConnected: Boolean = false
+)
+
 interface ApiService {
 
     @POST("api/v1/auth/signup")
@@ -67,4 +97,23 @@ interface ApiService {
 
     @POST("api/v1/ai/stop")
     suspend fun stopAnalysis(): StatusResponse
+
+    // Profile Endpoints
+    @GET("api/v1/profile/{user_id}")
+    suspend fun getProfile(@Path("user_id") userId: Int): UserProfileResponse
+
+    @POST("api/v1/profile/{user_id}")
+    suspend fun updateProfile(
+        @Path("user_id") userId: Int,
+        @Body data: UserProfileUpdate
+    ): UserProfileResponse
+
+    @GET("api/v1/profile/{user_id}/devices")
+    suspend fun getProfileDevices(@Path("user_id") userId: Int): List<ProfileDeviceResponse>
+
+    @POST("api/v1/profile/{user_id}/devices")
+    suspend fun addProfileDevice(
+        @Path("user_id") userId: Int,
+        @Body data: ProfileDeviceCreate
+    ): ProfileDeviceResponse
 }

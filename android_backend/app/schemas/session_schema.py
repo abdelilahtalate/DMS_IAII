@@ -22,3 +22,37 @@ class AlertCreate(BaseModel):
     alert_type: str
     latitude: float
     longitude: float
+
+class LocationResponse(BaseModel):
+    id: int
+    latitude: float
+    longitude: float
+    speed: float
+    timestamp: datetime
+
+class AlertResponse(BaseModel):
+    id: int
+    alert_type: str
+    latitude: float
+    longitude: float
+    timestamp: datetime
+
+class SessionSummaryResponse(BaseModel):
+    id: int
+    user_id: int
+    device_id: int
+    status: str
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    alert_count: int
+    location_count: int
+
+class SessionDetailResponse(BaseModel):
+    id: int
+    user_id: int
+    device_id: int
+    status: str
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    locations: List[LocationResponse]
+    alerts: List[AlertResponse]

@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.dms_app.core.ui.components.DriveMindBackground
 import com.example.dms_app.core.ui.components.GradientCard
 import com.example.dms_app.core.ui.components.SurfaceCard
 import com.example.dms_app.core.ui.components.ThemeToggleIconButton
@@ -44,7 +45,8 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel(),
     isDarkTheme: Boolean = true,
     onToggleTheme: () -> Unit = {},
-    onStartDrive: () -> Unit
+    onStartDrive: () -> Unit,
+    onTripClick: (String) -> Unit
 ) {
     val colors = LocalAppColors.current
     val greeting by vm.greeting.collectAsState()
@@ -53,12 +55,12 @@ fun HomeScreen(
     val todayStats by vm.todayStats.collectAsState()
     val recentTrips by vm.recentTrips.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .verticalScroll(rememberScrollState())
-    ) {
+    DriveMindBackground {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
         // TOP BAR
         Row(
             modifier = Modifier
@@ -197,7 +199,12 @@ fun HomeScreen(
         
         Column(modifier = Modifier.padding(horizontal = 24.dp)) {
             recentTrips.forEach { trip ->
-                SurfaceCard(modifier = Modifier.padding(bottom = 12.dp).fillMaxWidth()) {
+                SurfaceCard(
+                    modifier = Modifier
+                        .padding(bottom = 12.dp)
+                        .fillMaxWidth()
+                        .clickable { onTripClick(trip.id) }
+                ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -232,6 +239,7 @@ fun HomeScreen(
             }
         }
     }
+}
 }
 
 @Composable

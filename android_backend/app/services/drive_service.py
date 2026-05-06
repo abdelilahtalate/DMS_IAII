@@ -54,3 +54,89 @@ class DriveService:
         db.add(new_alert)
         db.commit()
         return {"message": "Alert logged"}
+
+    def list_sessions(self, db: Session, user_id: int = None):
+        query = db.query(DrivingSession)
+        if user_id is not None:
+            query = query.filter(DrivingSession.user_id == user_id)
+
+        sessions = query.order_by(DrivingSession.start_time.desc()).all()
+        return [
+            {
+                "id": session.id,
+                "user_id": session.user_id,
+                "device_id": session.device_id,
+                "status": session.status,
+                "start_time": session.start_time,
+                "end_time": session.end_time,
+                "alert_count": len(session.alerts),
+                "location_count": len(session.location_points),
+            }
+            for session in sessions
+        ]
+
+    def get_session_detail(self, db: Session, session_id: int):
+        session = db.query(DrivingSession).filter(DrivingSession.id == session_id).first()
+        if not session:
+            return {"error": "Session not found"}
+
+        return {
+            "id": session.id,
+            "user_id": session.user_id,
+            "device_id": session.device_id,
+            "status": session.status,
+            "start_time": session.start_time,
+            "end_time": session.end_time,
+            "locations": [
+                {
+                    "id": point.id,
+                    "latitude": point.latitude,
+                    "longitude": point.longitude,
+                    "speed": point.speed,
+                    "timestamp": point.timestamp,
+                }
+                for point in session.location_points
+            ],
+            "alerts": [
+                {
+                    "id": alert.id,
+                    "alert_type": alert.alert_type,
+                    "latitude": alert.latitude,
+                    "longitude": alert.longitude,
+                    "timestamp": alert.timestamp,
+                }
+                for alert in session.alerts
+            ],
+        }
+
+    def get_session_locations(self, db: Session, session_id: int):
+        session = db.query(DrivingSession).filter(DrivingSession.id == session_id).first()
+        if not session:
+            return {"error": "Session not found"}
+
+        return [
+            {
+                "id": point.id,
+                "latitude": point.latitude,
+                "longitude": point.longitude,
+                "speed": point.speed,
+                "timestamp": point.timestamp,
+            }
+            for point in session.location_points
+        ]
+
+    def get_session_alerts(self, db: Session, session_id: int):
+        session = db.query(DrivingSession).filter(DrivingSession.id == session_id).first()
+        if not session:
+            return {"error": "Session not found"}
+
+        return [
+            {
+                "id": alert.id,
+                "alert_type": alert.alert_type,
+                "latitude": alert.latitude,
+                "longitude": alert.longitude,
+                "timestamp": alert.timestamp,
+            }
+            for alert in session.alerts
+        ]
