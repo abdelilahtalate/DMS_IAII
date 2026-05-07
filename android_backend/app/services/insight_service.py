@@ -1,10 +1,8 @@
 from collections import defaultdict
-
 from sqlalchemy.orm import Session
-
 from app.models.session import DrivingSession
 from app.models.user import User
-
+from datetime import datetime
 
 class InsightService:
 
@@ -20,19 +18,19 @@ class InsightService:
             .all()
         )
 
-        day_stats = defaultdict(lambda: {"trips": 0, "events": 0})
+        day_stats = defaultdict(lambda: {"sessions": 0, "total_focus": 0})
         for session in sessions:
             if session.start_time is None:
                 continue
 
             day = session.start_time.strftime("%a")
-            day_stats[day]["trips"] += 1
-            day_stats[day]["events"] += len(session.alerts)
+            day_stats[day]["sessions"] += 1
+            day_stats[day]["total_focus"] += (session.average_focus or 100)
 
         return [
             {
                 "day": day,
-                "score": self._score_from_events(values["events"], values["trips"]),
+                "score": int(values["total_focus"] / values["sessions"]) if values["sessions"] > 0 else 100,
             }
             for day, values in day_stats.items()
         ]
@@ -54,14 +52,24 @@ class InsightService:
 
         total_trips = len(sessions)
         event_count = sum(len(session.alerts) for session in sessions)
+        total_distance_meters = sum(session.total_distance or 0 for session in sessions)
+        total_distance_km = round(total_distance_meters / 1000.0, 2)
+        
+        total_duration_min = 0
+        for session in sessions:
+            if session.start_time and session.end_time:
+                duration = session.end_time - session.start_time
+                total_duration_min += int(duration.total_seconds() / 60)
+        
         average_score = self._average_score(day_scores)
         best = max(day_scores, key=lambda item: item["score"], default={"day": "", "score": 0})
 
         midpoint = max(total_trips // 2, 1)
         previous_sessions = sessions[:midpoint]
         recent_sessions = sessions[midpoint:]
-        previous_score = self._score_for_sessions(previous_sessions)
-        recent_score = self._score_for_sessions(recent_sessions) if recent_sessions else previous_score
+        
+        previous_score = self._calculate_average_from_sessions(previous_sessions)
+        recent_score = self._calculate_average_from_sessions(recent_sessions) if recent_sessions else previous_score
 
         return {
             "averageScore": average_score,
@@ -70,6 +78,8 @@ class InsightService:
             "bestScore": best["score"],
             "totalTrips": total_trips,
             "eventCount": event_count,
+            "totalDistance": total_distance_km,
+            "totalDuration": total_duration_min,
         }
 
     def get_overview(self, db: Session, user_id: int):
@@ -86,22 +96,15 @@ class InsightService:
             "dayScores": day_scores,
         }
 
-    def _score_for_sessions(self, sessions):
+    def _calculate_average_from_sessions(self, sessions):
         if not sessions:
-            return 0
-
-        event_count = sum(len(session.alerts) for session in sessions)
-        return self._score_from_events(event_count, len(sessions))
-
-    def _score_from_events(self, event_count: int, trip_count: int):
-        if trip_count <= 0:
-            return 0
-
-        return max(0, min(100, 100 - int((event_count / trip_count) * 15)))
+            return 100
+        total = sum(session.average_focus or 100 for session in sessions)
+        return int(total / len(sessions))
 
     def _average_score(self, day_scores):
         if not day_scores:
-            return 0
+            return 100
 
         total = sum(item["score"] for item in day_scores)
         return int(total / len(day_scores))

@@ -10,7 +10,7 @@ data class SignupRequest(
     val email: String,
     val password: String,
     val gender: String,
-    val age: Int?
+    val age: Int? = null
 )
 
 data class LoginRequest(
@@ -23,15 +23,11 @@ data class AuthResponse(
     val access_token: String?,
     val error: String? = null
 )
+
 data class PairRequest(
     val device_id: String,
     val secret: String,
     val user_email: String
-)
-
-data class PairResponse(
-    val message: String,
-    val device: DeviceInfo
 )
 
 data class DeviceInfo(
@@ -39,63 +35,66 @@ data class DeviceInfo(
     val preview_stream: String
 )
 
-data class StatusResponse(
-    val status: String
+data class PairResponse(
+    val message: String,
+    val device: DeviceInfo
 )
 
+data class StatusResponse(
+    val status: String,
+    val message: String? = null
+)
+
+// Profile Models
 data class UserProfileResponse(
+    val id: Int,
     val name: String,
     val email: String,
-    val isPro: Boolean,
-    val totalTrips: Int,
-    val focusScore: Int,
-    val daysActive: Int
+    val avatarUrl: String? = null,
+    val isPro: Boolean = false,
+    val totalTrips: Int = 0,
+    val focusScore: Int = 0,
+    val daysActive: Int = 0
 )
 
 data class UserProfileUpdate(
-    val name: String? = null,
-    val email: String? = null,
-    val isPro: Boolean = false
+    val name: String,
+    val email: String,
+    val isPro: Boolean
 )
 
+
 data class ProfileDeviceResponse(
-    val id: String,
-    val name: String,
-    val type: String,
-    val isConnected: Boolean
+    val id: Int,
+    val device_id: String,
+    val secret: String,
+    val name: String = "ESP Device",
+    val type: String = "CAMERA",
+    val isConnected: Boolean = true,
+    val paired: Boolean = true
 )
 
 data class ProfileDeviceCreate(
-    val id: String,
-    val name: String? = null,
+    val id: String = "",
+    val name: String = "",
     val type: String = "CAMERA",
-    val secret: String = "profile-device",
-    val isConnected: Boolean = false
+    val isConnected: Boolean = false,
+    val device_id: String = "",
+    val secret: String = ""
 )
 
-data class SessionSummaryResponse(
-    val id: Int,
-    val user_id: Int,
-    val device_id: Int,
-    val status: String,
-    val start_time: String,
-    val end_time: String? = null,
-    val alert_count: Int,
-    val location_count: Int
+// Insight Models
+data class InsightStats(
+    val totalTrips: Int,
+    val totalDistance: Double,
+    val averageScore: Int,
+    val scoreChange: Int,
+    val totalDuration: Int = 0
 )
 
 data class DayScore(
     val day: String,
     val score: Int
-)
-
-data class InsightStats(
-    val averageScore: Int,
-    val scoreChange: Int,
-    val bestDay: String,
-    val bestScore: Int,
-    val totalTrips: Int,
-    val eventCount: Int
 )
 
 data class InsightOverview(
@@ -122,6 +121,11 @@ data class LocationCreate(
     val speed: Double
 )
 
+data class LocationBatch(
+    val session_id: Int,
+    val locations: List<LocationCreate>
+)
+
 data class AlertCreate(
     val session_id: Int,
     val alert_type: String,
@@ -129,12 +133,61 @@ data class AlertCreate(
     val longitude: Double
 )
 
-interface ApiService {
+data class DistanceUpdate(
+    val session_id: Int,
+    val distance_meters: Int
+)
 
+data class ScoreUpdate(
+    val session_id: Int,
+    val average_focus: Int
+)
+
+data class SessionSummaryResponse(
+    val id: Int,
+    val user_id: Int,
+    val device_id: Int,
+    val status: String,
+    val start_time: String,
+    val end_time: String? = null,
+    val total_distance: Int = 0,
+    val average_focus: Int = 100,
+    val alert_count: Int,
+    val location_count: Int
+)
+
+data class SessionDetailResponse(
+    val id: Int,
+    val user_id: Int,
+    val device_id: Int,
+    val status: String,
+    val start_time: String,
+    val end_time: String? = null,
+    val total_distance: Int = 0,
+    val average_focus: Int = 100,
+    val locations: List<LocationResponse>,
+    val alerts: List<AlertResponse>
+)
+
+data class LocationResponse(
+    val id: Int,
+    val latitude: Double,
+    val longitude: Double,
+    val speed: Double,
+    val timestamp: String
+)
+
+data class AlertResponse(
+    val id: Int,
+    val alert_type: String,
+    val latitude: Double,
+    val longitude: Double,
+    val timestamp: String
+)
+
+interface ApiService {
     @POST("api/v1/auth/signup")
-    suspend fun signup(
-        @Body request: SignupRequest
-    ): AuthResponse
+    suspend fun signup(@Body request: SignupRequest): AuthResponse
 
     @POST("api/v1/auth/login")
     suspend fun login(
@@ -160,10 +213,10 @@ interface ApiService {
     @GET("api/v1/profile/{user_id}")
     suspend fun getProfile(@Path("user_id") userId: Int): UserProfileResponse
 
-    @POST("api/v1/profile/{user_id}")
+    @PUT("api/v1/profile/{user_id}")
     suspend fun updateProfile(
         @Path("user_id") userId: Int,
-        @Body data: UserProfileUpdate
+        @Body profile: UserProfileUpdate
     ): UserProfileResponse
 
     @GET("api/v1/profile/{user_id}/devices")
@@ -182,8 +235,17 @@ interface ApiService {
     @POST("api/v1/sessions/stop/{session_id}")
     suspend fun stopSession(@Path("session_id") sessionId: Int): StatusResponse
 
+    @POST("api/v1/sessions/distance")
+    suspend fun updateDistance(@Body data: DistanceUpdate): StatusResponse
+
+    @POST("api/v1/sessions/score")
+    suspend fun updateScore(@Body data: ScoreUpdate): StatusResponse
+
     @POST("api/v1/sessions/location")
     suspend fun logLocation(@Body data: LocationCreate): StatusResponse
+
+    @POST("api/v1/sessions/locations")
+    suspend fun logLocations(@Body data: LocationBatch): StatusResponse
 
     @POST("api/v1/sessions/alert")
     suspend fun logAlert(@Body data: AlertCreate): StatusResponse

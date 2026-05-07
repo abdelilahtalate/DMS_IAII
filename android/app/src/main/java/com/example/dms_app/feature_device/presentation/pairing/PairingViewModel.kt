@@ -3,6 +3,7 @@ package com.example.dms_app.feature_device.presentation.pairing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dms_app.core.network.PairRequest
+import com.example.dms_app.core.network.PairResponse
 import com.example.dms_app.feature_device.data.DeviceRepository
 import com.example.dms_app.feature_device.domain.PairDeviceUseCase
 import kotlinx.coroutines.flow.MutableStateFlow

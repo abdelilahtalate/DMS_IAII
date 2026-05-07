@@ -66,8 +66,8 @@ class HomeViewModel : ViewModel() {
                 _focusScore.value = insights.stats.averageScore
                 _todayStats.value = TodayStats(
                     trips = insights.stats.totalTrips,
-                    distance = "48 km", // Mocking distance for now
-                    duration = "1h 24m", // Mocking duration for now
+                    distance = "${insights.stats.totalDistance} km",
+                    duration = formatDuration(insights.stats.totalDuration),
                     scoreChange = if (insights.stats.scoreChange >= 0) "+${insights.stats.scoreChange}" else "${insights.stats.scoreChange}"
                 )
 
@@ -114,5 +114,11 @@ class HomeViewModel : ViewModel() {
             in 12..16 -> "Good afternoon"
             else -> "Good evening"
         }
+    }
+
+    private fun formatDuration(minutes: Int): String {
+        val h = minutes / 60
+        val m = minutes % 60
+        return if (h > 0) "${h}h ${m}m" else "${m}m"
     }
 }

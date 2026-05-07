@@ -70,7 +70,7 @@ class ProfileRepositoryImpl(
 
     private fun mapDeviceToDomain(response: ProfileDeviceResponse): Device {
         return Device(
-            id = response.id,
+            id = response.id.toString(),
             name = response.name,
             type = try { DeviceType.valueOf(response.type) } catch (e: Exception) { DeviceType.CAMERA },
             isConnected = response.isConnected
