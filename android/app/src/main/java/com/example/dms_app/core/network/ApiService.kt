@@ -85,10 +85,13 @@ data class ProfileDeviceCreate(
 
 // Insight Models
 data class InsightStats(
-    val totalTrips: Int,
-    val totalDistance: Double,
     val averageScore: Int,
     val scoreChange: Int,
+    val bestDay: String,
+    val bestScore: Int,
+    val totalTrips: Int,
+    val eventCount: Int,
+    val totalDistance: Double = 0.0,
     val totalDuration: Int = 0
 )
 
@@ -99,7 +102,8 @@ data class DayScore(
 
 data class InsightOverview(
     val stats: InsightStats,
-    val dayScores: List<DayScore>
+    val dayScores: List<DayScore>,
+    val heatmapData: List<List<Int>>? = null
 )
 
 data class SessionStart(

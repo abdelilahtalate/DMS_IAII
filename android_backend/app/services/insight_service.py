@@ -91,10 +91,49 @@ class InsightService:
         if isinstance(day_scores, dict) and "error" in day_scores:
             return day_scores
 
+        heatmap = self.get_heatmap_data(db, user_id)
+
         return {
             "stats": stats,
             "dayScores": day_scores,
+            "heatmapData": heatmap
         }
+
+    def get_heatmap_data(self, db: Session, user_id: int):
+        """Returns a 7x8 matrix of risk levels (0-5) based on alert density."""
+        sessions = (
+            db.query(DrivingSession)
+            .filter(DrivingSession.user_id == user_id)
+            .all()
+        )
+        
+        # 7 days (Mon-Sun), 8 blocks (3h each)
+        matrix = [[0 for _ in range(8)] for _ in range(7)]
+        counts = [[0 for _ in range(8)] for _ in range(7)]
+        
+        for session in sessions:
+            for alert in session.alerts:
+                if alert.timestamp:
+                    # Monday is 0, Sunday is 6
+                    day = alert.timestamp.weekday()
+                    # 0-23 -> 0-7
+                    hour_block = alert.timestamp.hour // 3
+                    
+                    if 0 <= day < 7 and 0 <= hour_block < 8:
+                        counts[day][hour_block] += 1
+
+        # Map counts to risk levels 0-5
+        for d in range(7):
+            for h in range(8):
+                c = counts[d][h]
+                if c == 0: matrix[d][h] = 0
+                elif c < 2: matrix[d][h] = 1
+                elif c < 4: matrix[d][h] = 2
+                elif c < 6: matrix[d][h] = 3
+                elif c < 10: matrix[d][h] = 4
+                else: matrix[d][h] = 5
+        
+        return matrix
 
     def _calculate_average_from_sessions(self, sessions):
         if not sessions:

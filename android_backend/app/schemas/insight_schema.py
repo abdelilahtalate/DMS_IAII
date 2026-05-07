@@ -21,3 +21,4 @@ class InsightStats(BaseModel):
 class InsightOverview(BaseModel):
     stats: InsightStats
     dayScores: List[DayScore]
+    heatmapData: List[List[int]]

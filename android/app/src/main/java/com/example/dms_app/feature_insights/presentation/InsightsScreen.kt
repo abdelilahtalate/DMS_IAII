@@ -3,6 +3,7 @@ package com.example.dms_app.feature_insights.presentation
 import android.graphics.BlurMaskFilter
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,6 +61,38 @@ fun InsightsScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.mutedForeground
                 )
+            }
+
+            state.error?.let { error ->
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colors.redAlert.copy(alpha = 0.1f))
+                        .border(1.dp, colors.redAlert.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                ) {
+                    Column {
+                        Text(
+                            text = error,
+                            color = colors.redAlert,
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        androidx.compose.material3.TextButton(
+                            onClick = { vm.loadInsights() },
+                            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                        ) {
+                            Text("Retry", color = colors.cyan, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            if (state.isLoading && state.stats == null) {
+                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator(color = colors.cyan)
+                }
             }
 
             // 2. WEEKLY CHART CARD
@@ -296,7 +329,7 @@ fun RiskHeatmapCard(data: List<List<Int>>) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            val rows = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+            val rows = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
             val cols = listOf("12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p")
             
             Column {
