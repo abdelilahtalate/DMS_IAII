@@ -46,6 +46,12 @@ fun CameraPreviewScreen(
         vm.startStream(decodedUrl)
     }
 
+    DisposableEffect(decodedUrl) {
+        onDispose {
+            vm.stopStream(decodedUrl)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -80,7 +86,7 @@ fun CameraPreviewScreen(
                 PrimaryButton(
                     text = "Complete Face Profile",
                     onClick = {
-                        vm.stopStream()
+                        vm.stopStream(decodedUrl)
                         onSetupComplete()
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -93,7 +99,7 @@ fun CameraPreviewScreen(
                     modifier = Modifier
                         .padding(8.dp)
                         .clickable {
-                            vm.stopStream()
+                            vm.stopStream(decodedUrl)
                             onSetupComplete()
                         }
                 )

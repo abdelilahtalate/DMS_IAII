@@ -209,6 +209,9 @@ interface ApiService {
     @POST("api/v1/ai/stop")
     suspend fun stopAnalysis(): StatusResponse
 
+    @GET
+    suspend fun stopPreview(@Url url: String): StatusResponse
+
     // Profile Endpoints
     @GET("api/v1/profile/{user_id}")
     suspend fun getProfile(@Path("user_id") userId: Int): UserProfileResponse
