@@ -1,7 +1,9 @@
 package com.example.dms_app.feature_auth.presentation.signup
+import android.app.Application
 
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dms_app.core.database.TokenManager
 import com.example.dms_app.core.network.SignupRequest
 import com.example.dms_app.feature_auth.data.AuthRepository
 import com.example.dms_app.feature_auth.domain.SignupUseCase
@@ -9,10 +11,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class SignupViewModel : ViewModel() {
+class SignupViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repository = AuthRepository()
     private val signupUseCase = SignupUseCase(repository)
+    private val tokenManager = TokenManager(app)
 
     private val _state = MutableStateFlow(SignupUiState())
     val state: StateFlow<SignupUiState> = _state
@@ -56,6 +59,11 @@ class SignupViewModel : ViewModel() {
                         age = current.age.toIntOrNull()
                     )
                 )
+
+                // Auto-login after signup
+                response.access_token?.let { tokenManager.saveToken(it) }
+                response.user_id?.let { tokenManager.saveUserId(it) }
+                _state.value.email.let { tokenManager.saveEmail(it) }
 
                 _state.value = _state.value.copy(
                     isLoading = false,

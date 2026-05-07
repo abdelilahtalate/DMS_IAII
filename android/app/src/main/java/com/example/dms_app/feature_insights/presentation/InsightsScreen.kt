@@ -38,6 +38,10 @@ fun InsightsScreen(
     val state by vm.state.collectAsState()
     val colors = LocalAppColors.current
 
+    LaunchedEffect(Unit) {
+        vm.loadInsights()
+    }
+
     DriveMindBackground {
         Column(
             modifier = modifier

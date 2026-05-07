@@ -1,8 +1,10 @@
 package com.example.dms_app.feature_livedrive.presentation
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dms_app.DriveMindApp
+import com.example.dms_app.core.database.TokenManager
 import com.example.dms_app.core.location.DefaultLocationClient
 import com.example.dms_app.core.location.LocationRepository
 import com.example.dms_app.feature_livedrive.data.LiveDriveRepository
@@ -45,11 +47,12 @@ data class LiveDriveUiState(
     val error: String? = null
 )
 
-class LiveDriveViewModel : ViewModel() {
+class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repository = LiveDriveRepository()
     private val startUseCase = StartAnalysisUseCase(repository)
     private val stopUseCase = StopAnalysisUseCase(repository)
+    private val tokenManager = TokenManager(app)
     
     // GPS Location
     private val locationRepository = LocationRepository(DefaultLocationClient(DriveMindApp.instance))
@@ -86,9 +89,14 @@ class LiveDriveViewModel : ViewModel() {
                     println("DEBUG: Toggling ON monitoring")
                     // Start Session on Backend
                     try {
-                        val sessionResponse = repository.startSession(userId = 1, deviceId = "ESP_001")
+                        val userId = tokenManager.userIdFlow.first()
+                        if (userId == -1) {
+                             _state.value = _state.value.copy(error = "User session expired. Please log in again.")
+                             return@launch
+                        }
+                        val sessionResponse = repository.startSession(userId = userId, deviceId = "ESP_001")
                         currentSessionId = sessionResponse.session_id
-                        println("DEBUG: Started session with ID: $currentSessionId")
+                        println("DEBUG: Started session with ID: $currentSessionId for userId: $userId")
                     } catch (e: Exception) {
                         println("DEBUG: Failed to start session: ${e.message}")
                         _state.value = _state.value.copy(error = "Failed to start session: ${e.message}")

@@ -28,8 +28,7 @@ def seed():
                 id=1,
                 full_name="Abdelilah Talate",
                 email="abdelilah@example.com",
-                hashed_password="mock_password",
-                is_active=True
+                hashed_password="mock_password"
             )
             db.add(user)
             db.commit()
@@ -41,12 +40,18 @@ def seed():
             print("Creating Device ESP_001...")
             device = Device(
                 device_id="ESP_001",
+                user_id=1,
+                name="DriveMind DashCam",
                 secret="abc123",
                 paired=True
             )
             db.add(device)
             db.commit()
             db.refresh(device)
+        else:
+            device.user_id = 1
+            device.name = "DriveMind DashCam"
+            db.commit()
 
         # 3. Clear old sessions for a clean test? 
         # No, let's just add to them or keep them.

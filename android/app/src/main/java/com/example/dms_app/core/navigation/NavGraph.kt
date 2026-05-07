@@ -33,8 +33,8 @@ fun AppNavGraph(
 
         composable("splash") {
             SplashScreen(
-                onNavigateNext = {
-                    navController.navigate("onboarding") {
+                onNavigate = { target ->
+                    navController.navigate(target) {
                         popUpTo("splash") { inclusive = true }
                     }
                 }
@@ -115,7 +115,12 @@ fun AppNavGraph(
                 rootNavController = navController,
                 previewUrl = previewUrl,
                 appTheme = appTheme,
-                onToggleTheme = onToggleTheme
+                onToggleTheme = onToggleTheme,
+                onSignOut = {
+                    navController.navigate("login") {
+                        popUpTo("home/$previewUrl") { inclusive = true }
+                    }
+                }
             )
         }
 

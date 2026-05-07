@@ -1,20 +1,21 @@
 package com.example.dms_app.feature_insights.presentation
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dms_app.core.database.TokenManager
 import com.example.dms_app.core.network.ApiClient
 import com.example.dms_app.feature_insights.data.InsightsRepository
 import com.example.dms_app.feature_insights.domain.GetInsightsUseCase
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class InsightsViewModel : ViewModel() {
+class InsightsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repository = InsightsRepository(ApiClient.apiService)
     private val getInsightsUseCase = GetInsightsUseCase(repository)
+    private val tokenManager = TokenManager(app)
 
     private val _state = MutableStateFlow(InsightsUiState())
     val state: StateFlow<InsightsUiState> = _state.asStateFlow()
@@ -27,8 +28,10 @@ class InsightsViewModel : ViewModel() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             
-            val result = getInsightsUseCase(userId = 1) // Using default userId 1 for now
-            
+            val userId = tokenManager.userIdFlow.first()
+            if (userId == -1) return@launch
+
+            val result = getInsightsUseCase(userId = userId)
             result.onSuccess { insights ->
                 _state.update { 
                     it.copy(

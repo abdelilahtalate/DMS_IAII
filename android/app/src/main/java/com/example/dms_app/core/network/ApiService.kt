@@ -21,6 +21,7 @@ data class LoginRequest(
 data class AuthResponse(
     val message: String?,
     val access_token: String?,
+    val user_id: Int? = null,
     val error: String? = null
 )
 
@@ -259,6 +260,9 @@ interface ApiService {
 
     @GET("api/v1/sessions/")
     suspend fun listSessions(@Query("user_id") userId: Int? = null): List<SessionSummaryResponse>
+
+    @GET("api/v1/sessions/{session_id}")
+    suspend fun getSessionDetail(@Path("session_id") sessionId: Int): SessionDetailResponse
 
     // Insight Endpoints
     @GET("api/v1/insights/{user_id}/overview")

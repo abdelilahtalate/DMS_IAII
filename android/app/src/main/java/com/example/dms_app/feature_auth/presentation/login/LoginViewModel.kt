@@ -31,6 +31,10 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = _state.value.copy(password = value)
     }
 
+    fun toggleRememberMe() {
+        _state.value = _state.value.copy(rememberMe = !_state.value.rememberMe)
+    }
+
     // 🔹 Login Action
     fun login() {
         viewModelScope.launch {
@@ -53,8 +57,10 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
 
-                // Save token
+                // Save token and userId to enable data loading
                 tokenManager.saveToken(result.access_token ?: "")
+                result.user_id?.let { tokenManager.saveUserId(it) }
+                _state.value.email.let { tokenManager.saveEmail(it) }
 
                 _state.value = _state.value.copy(
                     isLoading = false,

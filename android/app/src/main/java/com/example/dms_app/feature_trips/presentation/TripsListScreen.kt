@@ -8,14 +8,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccessTime
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.DirectionsCar
-import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -37,67 +35,91 @@ fun TripsListScreen(
     modifier: Modifier = Modifier,
     vm: TripsViewModel = viewModel()
 ) {
+    val state by vm.state.collectAsState()
     val colors = LocalAppColors.current
-    val trips by vm.trips.collectAsState()
-    val activeFilter by vm.activeFilter.collectAsState()
-    val filters = listOf("All", "Today", "This Week", "This Month")
+
+    LaunchedEffect(Unit) {
+        vm.loadTrips()
+    }
 
     DriveMindBackground {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(bottom = 80.dp)
-        ) {
-            // 1. HEADER
+        Column(modifier = modifier.fillMaxSize()) {
+            // Header
             Column(
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
                     .padding(top = 48.dp, bottom = 16.dp)
             ) {
                 Text(
-                    text = "Trips",
+                    text = "My Trips",
                     style = MaterialTheme.typography.displaySmall,
                     color = colors.foreground
                 )
                 Text(
-                    text = "${trips.size} trips recorded",
+                    text = if (state.isLoading) "Loading trips..." else "${state.filteredTrips.size} trips shown",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.mutedForeground
                 )
             }
 
-            // 2. FILTER CHIPS ROW
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(filters) { filter ->
-                    FilterChip(
-                        text = filter,
-                        selected = filter == activeFilter,
-                        onClick = { vm.setFilter(filter) }
-                    )
-                }
-            }
+            // Filter Row
+            FilterRow(
+                activeFilter = state.activeFilter,
+                onFilterChange = { vm.setFilter(it) }
+            )
 
-            // 3. LAZY COLUMN
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(trips) { trip ->
-                    TripCard(
-                        trip = trip,
-                        onClick = { onNavigateToDetails(trip.id) }
-                    )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (state.isLoading && state.trips.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator(color = colors.cyan)
+                }
+            } else if (state.filteredTrips.isEmpty()) {
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Rounded.History,
+                            contentDescription = null,
+                            tint = colors.mutedForeground,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No trips found for this period",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colors.mutedForeground
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(state.filteredTrips) { trip ->
+                        TripCard(trip = trip, onClick = { onNavigateToDetails(trip.id) })
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun FilterRow(activeFilter: String, onFilterChange: (String) -> Unit) {
+    val filters = listOf("All", "Today", "This Week", "This Month")
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(filters) { filter ->
+            FilterChip(
+                text = filter,
+                selected = filter == activeFilter,
+                onClick = { onFilterChange(filter) }
+            )
         }
     }
 }
@@ -149,16 +171,14 @@ fun TripCard(trip: TripSummary, onClick: () -> Unit) {
                         color = colors.foreground
                     )
                     
-                    // Score change badge
                     BadgePill(
                         text = trip.scoreChange,
-                        variant = StatusVariant.SUCCESS
+                        variant = if (trip.scoreChange.startsWith("+")) StatusVariant.SUCCESS else StatusVariant.DANGER
                     )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Time row
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Rounded.AccessTime,
@@ -174,7 +194,6 @@ fun TripCard(trip: TripSummary, onClick: () -> Unit) {
                     )
                 }
 
-                // Distance row
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Rounded.Place,
@@ -198,7 +217,6 @@ fun TripCard(trip: TripSummary, onClick: () -> Unit) {
                 )
             }
 
-            // c) TRAILING
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = null,
@@ -209,7 +227,6 @@ fun TripCard(trip: TripSummary, onClick: () -> Unit) {
     }
 }
 
-// Helpers
 fun scoreColor(score: Int, colors: AppColors) = when {
     score >= 80 -> colors.success
     score >= 60 -> colors.amberWarn

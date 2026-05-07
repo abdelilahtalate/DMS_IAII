@@ -8,4 +8,5 @@ interface ProfileRepository {
     suspend fun updateProfile(userId: Int, profile: UserProfile): Result<UserProfile>
     suspend fun getDevices(userId: Int): Result<List<Device>>
     suspend fun addDevice(userId: Int, device: Device): Result<Device>
+    suspend fun clearToken()
 }
