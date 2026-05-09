@@ -87,4 +87,14 @@ class DriveRepository(
             } catch (e: Exception) {}
         }
     }.flowOn(Dispatchers.IO)
+
+    suspend fun stopPreview(url: String): Boolean {
+        return try {
+            val stopUrl = url.replace("/preview", "/stop-preview")
+            apiService.stopPreview(stopUrl)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

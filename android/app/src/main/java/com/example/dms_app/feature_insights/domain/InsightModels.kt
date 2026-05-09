@@ -8,5 +8,7 @@ data class InsightStats(
     val bestDay: String,
     val bestScore: Int,
     val totalTrips: Int,
-    val eventCount: Int
+    val eventCount: Int,
+    val totalDistance: Double = 0.0,
+    val totalDuration: Int = 0
 )

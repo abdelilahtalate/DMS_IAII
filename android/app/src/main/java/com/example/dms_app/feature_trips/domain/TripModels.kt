@@ -25,5 +25,12 @@ data class TripSummary(
     val timeRange: String,
     val distanceKm: Int,
     val score: Int,
-    val scoreChange: String
+    val scoreChange: String,
+    val rawTimestamp: Long = 0L
+)
+
+data class TripLocation(
+    val latitude: Double,
+    val longitude: Double,
+    val timestamp: String
 )

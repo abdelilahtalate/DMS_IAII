@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,11 +35,16 @@ import com.example.dms_app.feature_profile.domain.UserProfile
 fun ProfileScreen(
     onToggleTheme: () -> Unit,
     isDarkTheme: Boolean = true,
+    onSignOut: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = LocalAppColors.current
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshData()
+    }
 
     DriveMindBackground {
         Column(
@@ -261,7 +267,7 @@ fun ProfileScreen(
         // 6. LOGOUT BUTTON
         DangerButton(
             text = "Sign Out",
-            onClick = { viewModel.signOut() },
+            onClick = { viewModel.signOut(onSignOut) },
             icon = Icons.Rounded.Logout,
             modifier = Modifier.padding(horizontal = 24.dp)
         )

@@ -1,28 +1,69 @@
 package com.example.dms_app.feature_trips.presentation
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.dms_app.core.database.TokenManager
+import com.example.dms_app.core.network.ApiClient
+import com.example.dms_app.feature_trips.data.TripsRepositoryImpl
 import com.example.dms_app.feature_trips.domain.TripSummary
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.example.dms_app.feature_trips.domain.usecase.GetTripsUseCase
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
-class TripsViewModel : ViewModel() {
+class TripsViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val _trips = MutableStateFlow(
-        listOf(
-            TripSummary(1, "Morning Commute", "Today",     "08:15 - 08:42", 18, 85, "+15"),
-            TripSummary(2, "Lunch Run",       "Today",     "12:30 - 13:05", 12, 72, "+8"),
-            TripSummary(3, "Evening Drive",   "Yesterday", "18:00 - 18:45", 22, 91, "+18"),
-            TripSummary(4, "Weekend Trip",    "Apr 26",    "09:00 - 14:30", 156, 78, "+5")
-        )
-    )
-    val trips: StateFlow<List<TripSummary>> = _trips.asStateFlow()
+    private val repository = TripsRepositoryImpl(ApiClient.apiService)
+    private val getTripsUseCase = GetTripsUseCase(repository)
+    private val tokenManager = TokenManager(app)
 
-    private val _activeFilter = MutableStateFlow("All")
-    val activeFilter: StateFlow<String> = _activeFilter.asStateFlow()
+    private val _state = MutableStateFlow(TripsUiState())
+    val state: StateFlow<TripsUiState> = _state.asStateFlow()
 
-    fun setFilter(f: String) {
-        _activeFilter.value = f
-        // In a real app, we would filter the trips list here
+    init {
+        loadTrips()
+    }
+
+    fun loadTrips() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            val userId = tokenManager.userIdFlow.first()
+            if (userId == -1) return@launch
+            
+            val result = getTripsUseCase(userId = userId)
+            result.onSuccess { list ->
+                _state.update { 
+                    it.copy(
+                        trips = list,
+                        filteredTrips = applyFilter(list, it.activeFilter),
+                        isLoading = false
+                    ) 
+                }
+            }.onFailure {
+                _state.update { it.copy(isLoading = false, error = it.error) }
+            }
+        }
+    }
+
+    fun setFilter(filter: String) {
+        _state.update { 
+            it.copy(
+                activeFilter = filter,
+                filteredTrips = applyFilter(it.trips, filter)
+            )
+        }
+    }
+
+    private fun applyFilter(list: List<TripSummary>, filter: String): List<TripSummary> {
+        val now = System.currentTimeMillis()
+        val dayMillis = 24 * 60 * 60 * 1000L
+        
+        return when (filter) {
+            "Today" -> list.filter { now - it.rawTimestamp <= dayMillis }
+            "This Week" -> list.filter { now - it.rawTimestamp <= 7 * dayMillis }
+            "This Month" -> list.filter { now - it.rawTimestamp <= 30 * dayMillis }
+            else -> list
+        }.sortedByDescending { it.rawTimestamp }
     }
 }

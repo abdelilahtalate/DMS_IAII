@@ -74,6 +74,18 @@ fun QrScannerScreen(
         if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    // Explicitly unbind camera when navigating away
+    DisposableEffect(lifecycleOwner) {
+        onDispose {
+            try {
+                val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+                cameraProvider.unbindAll()
+            } catch (e: Exception) {
+                Log.e("QrScanner", "Unbinding failed", e)
+            }
+        }
+    }
+
     // ── FIX 1: Use AtomicBoolean so the background analyzer thread ────────────
     // always reads the CURRENT value, not the captured-at-creation value.
     val isScanningEnabled = remember { AtomicBoolean(true) }

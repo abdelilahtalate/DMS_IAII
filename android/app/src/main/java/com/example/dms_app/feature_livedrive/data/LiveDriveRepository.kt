@@ -35,8 +35,20 @@ class LiveDriveRepository {
         return ApiClient.apiService.logLocation(com.example.dms_app.core.network.LocationCreate(sessionId, lat, lon, speed))
     }
 
+    suspend fun logLocations(sessionId: Int, locations: List<com.example.dms_app.core.network.LocationCreate>): StatusResponse {
+        return ApiClient.apiService.logLocations(com.example.dms_app.core.network.LocationBatch(sessionId, locations))
+    }
+
     suspend fun logAlert(sessionId: Int, alertType: String, lat: Double, lon: Double): StatusResponse {
         return ApiClient.apiService.logAlert(com.example.dms_app.core.network.AlertCreate(sessionId, alertType, lat, lon))
+    }
+
+    suspend fun updateDistance(sessionId: Int, distanceMeters: Int): StatusResponse {
+        return ApiClient.apiService.updateDistance(com.example.dms_app.core.network.DistanceUpdate(sessionId, distanceMeters))
+    }
+
+    suspend fun updateScore(sessionId: Int, averageFocus: Int): StatusResponse {
+        return ApiClient.apiService.updateScore(com.example.dms_app.core.network.ScoreUpdate(sessionId, averageFocus))
     }
 
     fun observeAiResults(): Flow<String> = callbackFlow {

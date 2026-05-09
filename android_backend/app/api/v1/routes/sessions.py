@@ -11,6 +11,9 @@ from app.schemas.session_schema import (
     SessionDetailResponse,
     SessionStart,
     SessionSummaryResponse,
+    DistanceUpdate,
+    ScoreUpdate,
+    LocationBatch,
 )
 
 router = APIRouter()
@@ -33,9 +36,27 @@ def stop_session(session_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=result["error"])
     return result
 
+@router.post("/distance")
+def update_distance(data: DistanceUpdate, db: Session = Depends(get_db)):
+    result = drive_service.update_distance(db, data)
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+@router.post("/score")
+def update_score(data: ScoreUpdate, db: Session = Depends(get_db)):
+    result = drive_service.update_score(db, data)
+    if isinstance(result, dict) and "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
 @router.post("/location")
 def log_location(data: LocationCreate, db: Session = Depends(get_db)):
     return drive_service.log_location(db, data)
+
+@router.post("/locations")
+def log_locations(data: LocationBatch, db: Session = Depends(get_db)):
+    return drive_service.log_locations(db, data)
 
 @router.post("/alert")
 def log_alert(data: AlertCreate, db: Session = Depends(get_db)):

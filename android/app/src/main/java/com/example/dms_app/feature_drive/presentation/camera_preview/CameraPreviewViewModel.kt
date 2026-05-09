@@ -52,8 +52,14 @@ class CameraPreviewViewModel : ViewModel() {
         }
     }
 
-    fun stopStream() {
+    fun stopStream(url: String? = null) {
         streamJob?.cancel()
         streamJob = null
+        
+        url?.let {
+            viewModelScope.launch {
+                repository.stopPreview(it)
+            }
+        }
     }
 }

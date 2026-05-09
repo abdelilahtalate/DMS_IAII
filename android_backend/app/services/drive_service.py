@@ -3,7 +3,7 @@ from app.models.session import DrivingSession
 from app.models.location import LocationPoint
 from app.models.alert import Alert
 from app.models.device import Device
-from app.schemas.session_schema import SessionStart, LocationCreate, AlertCreate
+from app.schemas.session_schema import SessionStart, LocationCreate, AlertCreate, DistanceUpdate, ScoreUpdate, LocationBatch
 from datetime import datetime
 
 class DriveService:
@@ -17,7 +17,9 @@ class DriveService:
         new_session = DrivingSession(
             user_id=data.user_id,
             device_id=device.id,
-            status="active"
+            status="active",
+            total_distance=0,
+            average_focus=100
         )
         db.add(new_session)
         db.commit()
@@ -33,6 +35,22 @@ class DriveService:
             return {"message": "Session stopped"}
         return {"error": "Session not found"}
 
+    def update_distance(self, db: Session, data: DistanceUpdate):
+        session = db.query(DrivingSession).filter(DrivingSession.id == data.session_id).first()
+        if session:
+            session.total_distance = data.distance_meters
+            db.commit()
+            return {"message": "Distance updated", "total_distance": session.total_distance}
+        return {"error": "Session not found"}
+
+    def update_score(self, db: Session, data: ScoreUpdate):
+        session = db.query(DrivingSession).filter(DrivingSession.id == data.session_id).first()
+        if session:
+            session.average_focus = data.average_focus
+            db.commit()
+            return {"message": "Score updated", "average_focus": session.average_focus}
+        return {"error": "Session not found"}
+
     def log_location(self, db: Session, data: LocationCreate):
         new_point = LocationPoint(
             session_id=data.session_id,
@@ -43,6 +61,20 @@ class DriveService:
         db.add(new_point)
         db.commit()
         return {"message": "Location logged"}
+
+    def log_locations(self, db: Session, data: LocationBatch):
+        points = [
+            LocationPoint(
+                session_id=data.session_id,
+                latitude=loc.latitude,
+                longitude=loc.longitude,
+                speed=loc.speed
+            )
+            for loc in data.locations
+        ]
+        db.bulk_save_objects(points)
+        db.commit()
+        return {"message": f"{len(points)} locations logged"}
 
     def log_alert(self, db: Session, data: AlertCreate):
         new_alert = Alert(
@@ -69,6 +101,8 @@ class DriveService:
                 "status": session.status,
                 "start_time": session.start_time,
                 "end_time": session.end_time,
+                "total_distance": session.total_distance,
+                "average_focus": session.average_focus,
                 "alert_count": len(session.alerts),
                 "location_count": len(session.location_points),
             }
@@ -87,6 +121,8 @@ class DriveService:
             "status": session.status,
             "start_time": session.start_time,
             "end_time": session.end_time,
+            "total_distance": session.total_distance,
+            "average_focus": session.average_focus,
             "locations": [
                 {
                     "id": point.id,

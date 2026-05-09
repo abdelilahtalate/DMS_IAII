@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -89,7 +90,31 @@ fun LoginScreen(
                 }
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Remember Me
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = state.rememberMe,
+                    onCheckedChange = { vm.toggleRememberMe() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = colors.cyan,
+                        uncheckedColor = colors.mutedForeground,
+                        checkmarkColor = Color.Black
+                    )
+                )
+                Text(
+                    text = "Remember Me",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.foreground,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Login Button
             PrimaryButton(

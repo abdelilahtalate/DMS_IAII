@@ -6,6 +6,7 @@ DeviceType = Literal["CAMERA", "OBD"]
 
 
 class UserProfileResponse(BaseModel):
+    id: int
     name: str
     email: EmailStr
     isPro: bool = False
@@ -21,10 +22,12 @@ class UserProfileUpdate(BaseModel):
 
 
 class ProfileDeviceResponse(BaseModel):
-    id: str
+    id: int
+    device_id: str
     name: str
     type: DeviceType
     isConnected: bool
+    paired: bool = True
 
 
 class ProfileDeviceCreate(BaseModel):

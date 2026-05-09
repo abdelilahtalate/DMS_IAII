@@ -1,12 +1,14 @@
 package com.example.dms_app.feature_home.presentation
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dms_app.core.database.TokenManager
 import com.example.dms_app.core.network.ApiClient
-import com.example.dms_app.core.network.ApiService
 import com.example.dms_app.feature_home.data.repository.HomeRepositoryImpl
 import com.example.dms_app.feature_home.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -26,9 +28,10 @@ data class TripSummary(
     val isPositive: Boolean
 )
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repository: HomeRepository = HomeRepositoryImpl(ApiClient.apiService)
+    private val tokenManager = TokenManager(app)
 
     private val _driverName = MutableStateFlow("Driver")
     val driverName: StateFlow<String> = _driverName.asStateFlow()
@@ -54,30 +57,43 @@ class HomeViewModel : ViewModel() {
         loadData()
     }
 
-    private fun loadData() {
+    fun loadData() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Using a default userId of 1
-                val profile = repository.getProfile(1)
+                // Fetch the actual userId from TokenManager
+                val userId = tokenManager.userIdFlow.first()
+                println("DEBUG: HomeViewModel loading data for userId: $userId")
+                if (userId == -1) {
+                    println("DEBUG: userId is -1, aborting load")
+                    return@launch
+                }
+
+                val profile = repository.getProfile(userId)
                 _driverName.value = profile.name
                 
-                val insights = repository.getInsights(1)
+                val insights = repository.getInsights(userId)
                 _focusScore.value = insights.stats.averageScore
                 _todayStats.value = TodayStats(
                     trips = insights.stats.totalTrips,
-                    distance = "48 km", // Mocking distance for now
-                    duration = "1h 24m", // Mocking duration for now
+                    distance = "${insights.stats.totalDistance} km",
+                    duration = formatDuration(insights.stats.totalDuration),
                     scoreChange = if (insights.stats.scoreChange >= 0) "+${insights.stats.scoreChange}" else "${insights.stats.scoreChange}"
                 )
 
-                val sessions = repository.getRecentTrips(1)
-                _recentTrips.value = sessions.take(5).map { session ->
+                val sessions = repository.getRecentTrips(userId)
+                _recentTrips.value = sessions.sortedByDescending { it.start_time }.take(5).map { session ->
+                    val date = try {
+                        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                        val outputFormat = SimpleDateFormat("MMM d", Locale.getDefault())
+                        outputFormat.format(inputFormat.parse(session.start_time)!!)
+                    } catch (e: Exception) { "Recent Trip" }
+
                     TripSummary(
                         id = session.id.toString(),
-                        name = "Trip #${session.id}",
+                        name = "$date Trip",
                         timeRange = formatTimeRange(session.start_time, session.end_time),
-                        scoreChange = if (session.alert_count == 0) "+10" else "-${session.alert_count * 2}",
+                        scoreChange = if (session.alert_count == 0) "+${session.average_focus / 10}" else "-${session.alert_count * 5}",
                         isPositive = session.alert_count == 0
                     )
                 }
@@ -114,5 +130,11 @@ class HomeViewModel : ViewModel() {
             in 12..16 -> "Good afternoon"
             else -> "Good evening"
         }
+    }
+
+    private fun formatDuration(minutes: Int): String {
+        val h = minutes / 60
+        val m = minutes % 60
+        return if (h > 0) "${h}h ${m}m" else "${m}m"
     }
 }

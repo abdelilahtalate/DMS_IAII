@@ -12,4 +12,8 @@ class LocationRepository(
             (location.speed * 3.6).roundToInt() // Convert m/s to km/h
         }
     }
+
+    fun getLocationUpdates(interval: Long): Flow<android.location.Location> {
+        return locationClient.getLocationUpdates(interval)
+    }
 }

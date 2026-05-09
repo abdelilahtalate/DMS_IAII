@@ -1,5 +1,6 @@
 package com.example.dms_app.feature_profile.data.repository
 
+import com.example.dms_app.core.database.TokenManager
 import com.example.dms_app.core.network.*
 import com.example.dms_app.feature_profile.domain.Device
 import com.example.dms_app.feature_profile.domain.DeviceType
@@ -7,8 +8,13 @@ import com.example.dms_app.feature_profile.domain.UserProfile
 import com.example.dms_app.feature_profile.domain.repository.ProfileRepository
 
 class ProfileRepositoryImpl(
-    private val api: ApiService = ApiClient.apiService
+    private val api: ApiService = ApiClient.apiService,
+    private val tokenManager: TokenManager? = null
 ) : ProfileRepository {
+
+    override suspend fun clearToken() {
+        tokenManager?.clearToken()
+    }
 
     override suspend fun getProfile(userId: Int): Result<UserProfile> {
         return try {
@@ -70,7 +76,7 @@ class ProfileRepositoryImpl(
 
     private fun mapDeviceToDomain(response: ProfileDeviceResponse): Device {
         return Device(
-            id = response.id,
+            id = response.id.toString(),
             name = response.name,
             type = try { DeviceType.valueOf(response.type) } catch (e: Exception) { DeviceType.CAMERA },
             isConnected = response.isConnected

@@ -26,7 +26,8 @@ fun MainScreen(
     rootNavController: NavHostController,
     previewUrl: String,
     appTheme: AppTheme,
-    onToggleTheme: () -> Unit
+    onToggleTheme: () -> Unit,
+    onSignOut: () -> Unit
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -104,6 +105,7 @@ fun MainScreen(
                 com.example.dms_app.feature_profile.presentation.ProfileScreen(
                     onToggleTheme = onToggleTheme,
                     isDarkTheme = appTheme == AppTheme.DARK,
+                    onSignOut = onSignOut,
                     modifier = Modifier.padding(bottom = 90.dp)
                 )
             }

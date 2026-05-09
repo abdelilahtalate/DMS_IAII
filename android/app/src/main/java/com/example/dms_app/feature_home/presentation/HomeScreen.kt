@@ -55,6 +55,10 @@ fun HomeScreen(
     val todayStats by vm.todayStats.collectAsState()
     val recentTrips by vm.recentTrips.collectAsState()
 
+    LaunchedEffect(Unit) {
+        vm.loadData()
+    }
+
     DriveMindBackground {
         Column(
             modifier = modifier

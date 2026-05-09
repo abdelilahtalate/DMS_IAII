@@ -21,13 +21,19 @@ class ProfileService:
             if session.start_time is not None
         }
 
+        focus_score = 100
+        if sessions:
+            total_focus = sum(session.average_focus or 100 for session in sessions)
+            focus_score = int(total_focus / len(sessions))
+
         return {
+            "id": user.id,
             "name": user.full_name,
             "email": user.email,
             "isPro": False,
-            "totalTrips": len(sessions),
-            "focusScore": 0,
-            "daysActive": len(active_days),
+            "totalTrips": int(len(sessions)),
+            "focusScore": int(focus_score),
+            "daysActive": int(len(active_days)),
         }
 
     def update_profile(self, db: Session, user_id: int, data: UserProfileUpdate):
@@ -49,7 +55,8 @@ class ProfileService:
         if not user:
             return {"error": "User not found"}
 
-        devices = db.query(Device).all()
+        # Show only devices paired with THIS user
+        devices = db.query(Device).filter(Device.user_id == user_id).all()
         return [self._device_response(device, user.email) for device in devices]
 
     def add_device(self, db: Session, user_id: int, data: ProfileDeviceCreate):
@@ -57,17 +64,37 @@ class ProfileService:
         if not user:
             return {"error": "User not found"}
 
+        # 1. Exclusive connection logic:
+        # If this device is already paired with another user, we might want to "disconnect" it from them.
+        # The user says: "if someone connected to it it will disconnected from it"
         device = db.query(Device).filter(Device.device_id == data.id).first()
+        
         if device is None:
             device = Device(
                 device_id=data.id,
+                user_id=user_id, # Set current user as owner
                 secret=data.secret,
                 paired=data.isConnected,
             )
             db.add(device)
         else:
+            # Re-assign device to current user if they are pairing with it
+            device.user_id = user_id
             device.secret = data.secret
             device.paired = data.isConnected
+
+        # 2. If the user wants "if one is connect the other disconnected" (one active device per user),
+        # we should mark all OTHER devices for this user as disconnected.
+        if data.isConnected:
+            other_devices = db.query(Device).filter(
+                Device.user_id == user_id, 
+                Device.device_id != data.id
+            ).all()
+            for d in other_devices:
+                d.paired = False
+                # Also update store status if needed
+                if d.device_id in devices_db:
+                    devices_db[d.device_id]["status"] = "offline"
 
         db.commit()
         db.refresh(device)
@@ -90,10 +117,12 @@ class ProfileService:
         store_status = store_device.get("status") if store_device else None
 
         return {
-            "id": device.device_id,
+            "id": device.id,
+            "device_id": device.device_id,
             "name": name or device.device_id,
             "type": device_type,
             "isConnected": bool(device.paired) or (
                 store_owner == user_email and store_status == "online"
             ),
+            "paired": bool(device.paired)
         }

@@ -12,6 +12,8 @@ class DrivingSession(Base):
     
     start_time = Column(DateTime(timezone=True), server_default=func.now())
     end_time = Column(DateTime(timezone=True), nullable=True)
+    total_distance = Column(Integer, default=0) # in meters
+    average_focus = Column(Integer, default=100)
     status = Column(String, default="active") # active, completed
     
     # Relationships

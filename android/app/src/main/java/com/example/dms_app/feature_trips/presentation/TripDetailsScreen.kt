@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import com.example.dms_app.feature_trips.domain.TripLocation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +33,11 @@ import com.example.dms_app.core.ui.theme.LocalAppColors
 import com.example.dms_app.core.ui.theme.AppColors
 import com.example.dms_app.feature_trips.domain.EventType
 import com.example.dms_app.feature_trips.domain.TripEvent
+import com.google.maps.android.compose.*
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.JointType
+import com.google.android.gms.maps.model.RoundCap
 
 @Composable
 fun TripDetailsScreen(
@@ -48,176 +54,178 @@ fun TripDetailsScreen(
     }
 
     DriveMindBackground {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            // 1. TOP BAR
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 48.dp, bottom = 24.dp),
-                verticalAlignment = Alignment.CenterVertically
+        if (state.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.CircularProgressIndicator(color = colors.cyan)
+            }
+        } else if (state.trip == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Trip details not found", color = colors.mutedForeground)
+            }
+        } else {
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
             ) {
-                Box(
+                // 1. TOP BAR
+                Row(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(colors.surface2)
-                        .clickable { onBack() },
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 48.dp, bottom = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ArrowBack,
-                        contentDescription = "Back",
-                        tint = colors.foreground,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(colors.surface2)
+                            .clickable { onBack() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBack,
+                            contentDescription = "Back",
+                            tint = colors.foreground,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+                    
+                    Column {
+                        Text(
+                            text = state.trip?.title ?: "",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = colors.foreground
+                        )
+                        Text(
+                            text = state.trip?.date ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.mutedForeground
+                        )
+                    }
                 }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Column {
-                    Text(
-                        text = state.trip?.title ?: "Morning Commute",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = colors.foreground
-                    )
-                    Text(
-                        text = state.trip?.date ?: "April 28, 2026",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.mutedForeground
-                    )
-                }
-            }
 
-            // 2. ROUTE MAP CARD
-            RouteMapCard()
+                // 2. ROUTE MAP CARD
+                RouteMapCard(locations = state.locations, alerts = state.alertMarkers)
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. STATS ROW
-            StatsRow(
-                distance = state.trip?.distance ?: "18 km",
-                duration = state.trip?.duration ?: "27 min",
-                scoreImprovement = state.trip?.scoreImprovement ?: 15
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // 4. TIMELINE SECTION
-            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                Text(
-                    text = "Event Timeline",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.foreground,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                // 3. STATS ROW
+                StatsRow(
+                    distance = state.trip?.distance ?: "0 km",
+                    duration = state.trip?.duration ?: "0 min",
+                    scoreImprovement = state.trip?.scoreImprovement ?: 0
                 )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // 4. TIMELINE SECTION
+                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                    Text(
+                        text = "Event Timeline",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.foreground,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
+                    TimelineSection(events = state.events)
+                }
                 
-                TimelineSection(events = state.events)
+                Spacer(modifier = Modifier.height(100.dp))
             }
-            
-            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
 
 @Composable
-fun RouteMapCard() {
+fun RouteMapCard(locations: List<TripLocation>, alerts: List<TripLocation>) {
     val colors = LocalAppColors.current
     SurfaceCard(
         modifier = Modifier
             .padding(horizontal = 24.dp)
-            .height(160.dp)
+            .height(260.dp)
             .fillMaxWidth()
     ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val width = constraints.maxWidth.toFloat()
-            val height = constraints.maxHeight.toFloat()
-
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val path = Path().apply {
-                    moveTo(width * 0.15f, height * 0.7f)
-                    cubicTo(
-                        width * 0.4f, height * 0.2f,
-                        width * 0.6f, height * 0.8f,
-                        width * 0.85f, height * 0.3f
-                    )
-                }
-
-                // Glow effect
-                drawIntoCanvas { canvas ->
-                    val paint = android.graphics.Paint().apply {
-                        color = colors.cyan.toArgb()
-                        strokeWidth = 6.dp.toPx()
-                        style = android.graphics.Paint.Style.STROKE
-                        strokeCap = android.graphics.Paint.Cap.ROUND
-                        maskFilter = BlurMaskFilter(6.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
-                    }
-                    canvas.nativeCanvas.drawPath(path.asAndroidPath(), paint)
-                }
-
-                // Bezier route path
-                drawPath(
-                    path = path,
-                    color = colors.cyan,
-                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-                )
-
-                // Start dot
-                drawCircle(
-                    color = colors.success,
-                    radius = 5.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(width * 0.15f, height * 0.7f)
-                )
-
-                // End dot
-                drawCircle(
-                    color = colors.cyan,
-                    radius = 5.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(width * 0.85f, height * 0.3f)
-                )
-
-                // Event dots on path (approximated positions)
-                drawCircle(
-                    color = colors.redAlert,
-                    radius = 3.5.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(width * 0.45f, height * 0.45f)
-                )
-                drawCircle(
-                    color = colors.amberWarn,
-                    radius = 3.5.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(width * 0.65f, height * 0.65f)
-                )
+        if (locations.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No map data available", color = colors.mutedForeground)
+            }
+        } else {
+            val path = remember(locations) {
+                locations.map { LatLng(it.latitude, it.longitude) }
+            }
+            
+            val cameraPositionState = rememberCameraPositionState {
+                position = CameraPosition.fromLatLngZoom(path.first(), 14f)
             }
 
-            // Start/End labels
-            Text(
-                text = "Home",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.mutedForeground,
-                modifier = Modifier
-                    .padding(start = maxWidth * 0.12f, top = maxHeightToDp(0.75f))
-            )
-            Text(
-                text = "Work",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.mutedForeground,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = maxWidth * 0.12f, top = maxHeightToDp(0.15f))
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState,
+                    uiSettings = MapUiSettings(
+                        zoomControlsEnabled = false,
+                        myLocationButtonEnabled = false,
+                        mapToolbarEnabled = false
+                    ),
+                    properties = MapProperties(
+                        isMyLocationEnabled = false,
+                        mapType = MapType.NORMAL
+                    )
+                ) {
+                    // 1. Draw the Path
+                    Polyline(
+                        points = path,
+                        color = colors.cyan,
+                        width = 10f,
+                        startCap = RoundCap(),
+                        endCap = RoundCap(),
+                        jointType = JointType.ROUND
+                    )
 
-            // Legend Row
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                LegendItem(color = colors.redAlert, label = "Phone")
-                LegendItem(color = colors.amberWarn, label = "Warning")
+                    // 2. Start Marker
+                    Marker(
+                        state = MarkerState(position = path.first()),
+                        title = "Start",
+                        snippet = "Departure point"
+                    )
+
+                    // 3. End Marker
+                    Marker(
+                        state = MarkerState(position = path.last()),
+                        title = "End",
+                        snippet = "Destination"
+                    )
+
+                    // 4. Alert Markers
+                    alerts.forEach { alert ->
+                        Marker(
+                            state = MarkerState(position = LatLng(alert.latitude, alert.longitude)),
+                            title = "Risk Alert",
+                            alpha = 0.8f
+                        )
+                    }
+                }
+
+                // Legend Overlay
+                Box(
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .align(Alignment.BottomStart)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.surface.copy(alpha = 0.8f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        LegendItem(color = colors.success, label = "Start")
+                        LegendItem(color = colors.cyan, label = "Path")
+                        if (alerts.isNotEmpty()) {
+                            LegendItem(color = colors.redAlert, label = "Risk")
+                        }
+                    }
+                }
             }
         }
     }
