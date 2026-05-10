@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.routes import auth, devices, pairing, ai, alerts, sessions, profile, insights
+from app.api.v1.routes import auth, devices, pairing, ai, alerts, sessions, profile, insights, settings
 
 api_router = APIRouter()
 
@@ -12,3 +12,4 @@ api_router.include_router(alerts.router, prefix="/alerts", tags=["Alerts"])
 api_router.include_router(sessions.router, prefix="/sessions", tags=["Sessions"])
 api_router.include_router(profile.router, prefix="/profile", tags=["Profile"])
 api_router.include_router(insights.router, prefix="/insights", tags=["Insights"])
+api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])

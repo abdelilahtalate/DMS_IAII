@@ -190,6 +190,28 @@ data class AlertResponse(
     val timestamp: String
 )
 
+// Settings Models
+data class UserSettingsResponse(
+    val user_id: Int,
+    val fatigue_sensitivity: String,
+    val phone_sensitivity: String,
+    val distraction_sensitivity: String,
+    val voice_alerts: Boolean,
+    val haptic_feedback: Boolean,
+    val critical_only: Boolean,
+    val preferred_voice: String
+)
+
+data class UserSettingsUpdate(
+    val fatigue_sensitivity: String,
+    val phone_sensitivity: String,
+    val distraction_sensitivity: String,
+    val voice_alerts: Boolean,
+    val haptic_feedback: Boolean,
+    val critical_only: Boolean,
+    val preferred_voice: String
+)
+
 interface ApiService {
     @POST("api/v1/auth/signup")
     suspend fun signup(@Body request: SignupRequest): AuthResponse
@@ -267,4 +289,14 @@ interface ApiService {
     // Insight Endpoints
     @GET("api/v1/insights/{user_id}/overview")
     suspend fun getInsightOverview(@Path("user_id") userId: Int): InsightOverview
+
+    // Settings Endpoints
+    @GET("api/v1/settings/{user_id}")
+    suspend fun getSettings(@Path("user_id") userId: Int): UserSettingsResponse
+
+    @POST("api/v1/settings/{user_id}")
+    suspend fun updateSettings(
+        @Path("user_id") userId: Int,
+        @Body settings: UserSettingsUpdate
+    ): UserSettingsResponse
 }

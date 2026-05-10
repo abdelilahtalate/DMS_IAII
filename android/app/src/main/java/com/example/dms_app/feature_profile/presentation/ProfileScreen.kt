@@ -36,6 +36,7 @@ fun ProfileScreen(
     onToggleTheme: () -> Unit,
     isDarkTheme: Boolean = true,
     onSignOut: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
@@ -132,7 +133,7 @@ fun ProfileScreen(
 
                         // SETTINGS ICON BUTTON
                         IconButton(
-                            onClick = { /* Navigate to settings */ },
+                            onClick = onNavigateToSettings,
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
@@ -257,7 +258,8 @@ fun ProfileScreen(
                 HorizontalDivider(color = colors.border)
                 SettingsRow(
                     icon = Icons.Rounded.Settings,
-                    label = "Settings"
+                    label = "Settings",
+                    onClick = onNavigateToSettings
                 )
             }
         }
@@ -367,14 +369,15 @@ fun DeviceRow(device: Device) {
 fun SettingsRow(
     icon: ImageVector,
     label: String,
-    value: String? = null
+    value: String? = null,
+    onClick: () -> Unit = {}
 ) {
     val colors = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .clickable { /* Handle click */ }
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

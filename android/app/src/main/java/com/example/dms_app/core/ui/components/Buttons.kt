@@ -48,9 +48,10 @@ fun PrimaryButton(
     }
 
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
+            .then(modifier)
             .scale(scale)
             .clip(RoundedCornerShape(16.dp))
             .background(bgBrush)
@@ -90,9 +91,10 @@ fun SecondaryButton(
     val colors = LocalAppColors.current
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .height(56.dp)
+            .then(modifier),
         enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -115,9 +117,10 @@ fun DangerButton(
     val colors = LocalAppColors.current
     Button(
         onClick = onClick,
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
+            .then(modifier)
             .border(1.dp, colors.redAlert.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
         colors = ButtonDefaults.buttonColors(
             containerColor = colors.redAlert.copy(alpha = 0.1f),

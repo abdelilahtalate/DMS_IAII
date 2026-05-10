@@ -52,10 +52,12 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = LiveDriveRepository()
     private val startUseCase = StartAnalysisUseCase(repository)
     private val stopUseCase = StopAnalysisUseCase(repository)
+    private val observeAiResultsUseCase = ObserveAiResultsUseCase(repository)
     private val tokenManager = TokenManager(app)
     
     // GPS Location
     private val locationRepository = LocationRepository(DefaultLocationClient(DriveMindApp.instance))
+    private val soundManager = com.example.dms_app.core.utils.SoundManager(app)
 
     private val _state = MutableStateFlow(LiveDriveUiState())
     val state: StateFlow<LiveDriveUiState> = _state
@@ -63,7 +65,8 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
     private val _alertEvent = MutableSharedFlow<Unit>()
     val alertEvent: SharedFlow<Unit> = _alertEvent
 
-    private var monitoringJob: Job? = null
+    private var aiListeningJob: Job? = null
+    private var locationJob: Job? = null
     private var timerJob: Job? = null
     private var speedJob: Job? = null
     private var locationSyncJob: Job? = null
@@ -73,8 +76,15 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
     private var focusSum: Long = 0
     private var focusCount: Int = 0
     
-    private var lastAlertTime: Long = 0
-    private val ALERT_COOLDOWN_MS = 5000L // Only log one alert every 5 seconds
+    private var lastAlertLogTime: Long = 0
+    private var lastSoundTriggerTime: Long = 0
+    
+    private val ALERT_LOG_COOLDOWN_MS = 10000L // Log to backend every 10s
+    private val SOUND_TRIGGER_COOLDOWN_MS = 2500L // Play sound every 2.5s if alert continues
+    
+    // Alert Smoothing
+    private var consecutiveAlerts = 0
+    private val ALERT_THRESHOLD_FRAMES = 2 // Must be alert for 2 frames to trigger sound
     
     private val capturedLocations = mutableListOf<com.example.dms_app.core.network.LocationCreate>()
     private var lastLocation: android.location.Location? = null
@@ -97,50 +107,47 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                         val sessionResponse = repository.startSession(userId = userId, deviceId = "ESP_001")
                         currentSessionId = sessionResponse.session_id
                         println("DEBUG: Started session with ID: $currentSessionId for userId: $userId")
+                        
+                        // Initialize Session Stats
+                        totalDistanceMeters = 0.0
+                        focusSum = 100
+                        focusCount = 1
+                        capturedLocations.clear()
+                        lastLocation = null
+                        consecutiveAlerts = 0
+                        
+                        // Start AI Analysis
+                        try {
+                            startUseCase()
+                        } catch (e: Exception) {
+                            println("DEBUG: Failed to start AI: ${e.message}")
+                        }
+                        
+                        _state.value = _state.value.copy(
+                            isMonitoring = true,
+                            elapsedSeconds = 0,
+                            focusScore = 100,
+                            distanceMeters = 0,
+                            driveStatus = DriveStatus.FOCUSED,
+                            error = null
+                        )
+                        startListening()
+                        startTimer()
+                        startSpeedTracking()
+                        startLocationSync()
                     } catch (e: Exception) {
-                        println("DEBUG: Failed to start session: ${e.message}")
                         _state.value = _state.value.copy(error = "Failed to start session: ${e.message}")
-                        return@launch
                     }
-                    
-                    totalDistanceMeters = 0.0
-                    focusSum = 100
-                    focusCount = 1
-                    capturedLocations.clear()
-                    lastLocation = null
-                    
-                    // Start AI Analysis
-                    try {
-                        startUseCase()
-                    } catch (e: Exception) {
-                        println("DEBUG: Failed to start AI: ${e.message}")
-                    }
-                    
-                    _state.value = _state.value.copy(
-                        isMonitoring = true,
-                        elapsedSeconds = 0,
-                        focusScore = 100,
-                        distanceMeters = 0,
-                        driveStatus = DriveStatus.FOCUSED,
-                        error = null
-                    )
-                    startListening()
-                    startTimer()
-                    startSpeedTracking()
-                    startLocationSync()
                 }
             } catch (e: Exception) {
-                println("DEBUG: Toggle error: ${e.message}")
                 _state.value = _state.value.copy(error = e.message)
             }
         }
     }
 
-    private val observeAiResultsUseCase = ObserveAiResultsUseCase(repository)
-
     private fun startListening() {
-        monitoringJob?.cancel()
-        monitoringJob = viewModelScope.launch {
+        aiListeningJob?.cancel()
+        aiListeningJob = viewModelScope.launch {
             observeAiResultsUseCase()
                 .catch { e ->
                     _state.value = _state.value.copy(error = "Connection lost: ${e.message}")
@@ -153,6 +160,45 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                         else -> DriveStatus.FOCUSED
                     }
                     
+                    val now = System.currentTimeMillis()
+                    
+                    // Sound & Haptic Logic with Cooldown and Cancellation
+                    if (newStatus == DriveStatus.FOCUSED) {
+                        consecutiveAlerts = 0
+                        soundManager.stopAll() // Immediately stop alarm when focused
+                        soundManager.stopVibration()
+                    } else if (newStatus == DriveStatus.WARNING) {
+                        consecutiveAlerts = 0
+                        if (now - lastSoundTriggerTime > SOUND_TRIGGER_COOLDOWN_MS) {
+                            soundManager.playWarning()
+                            soundManager.vibrate(300)
+                            lastSoundTriggerTime = now
+                        }
+                    } else if (newStatus == DriveStatus.ALERT) {
+                        consecutiveAlerts++
+                        
+                        // Only trigger sound if alert persists for multiple frames
+                        if (consecutiveAlerts >= ALERT_THRESHOLD_FRAMES) {
+                            if (now - lastSoundTriggerTime > SOUND_TRIGGER_COOLDOWN_MS) {
+                                _alertEvent.emit(Unit)
+                                soundManager.playCritical()
+                                soundManager.vibrate(800)
+                                lastSoundTriggerTime = now
+                            }
+                        }
+                        
+                        // Backend Logging Cooldown
+                        if (now - lastAlertLogTime > ALERT_LOG_COOLDOWN_MS) {
+                            lastAlertLogTime = now
+                            val type = when {
+                                wrapper.scores?.fatigue?.is_fatigued == true -> "FATIGUE"
+                                wrapper.scores?.distraction?.is_distracted == true -> "DISTRACTION"
+                                else -> "ALERT"
+                            }
+                            logAlertOnBackend(type)
+                        }
+                    }
+                    
                     _state.value = _state.value.copy(
                         lastResult = wrapper.scores,
                         focusScore = newFocus,
@@ -162,23 +208,6 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
 
                     focusSum += newFocus
                     focusCount++
-
-                    if (newStatus == DriveStatus.ALERT) {
-                        _alertEvent.emit(Unit)
-                        
-                        val now = System.currentTimeMillis()
-                        if (now - lastAlertTime > ALERT_COOLDOWN_MS) {
-                            lastAlertTime = now
-                            
-                            // Determine alert type
-                            val type = when {
-                                wrapper.scores?.fatigue?.is_fatigued == true -> "FATIGUE"
-                                wrapper.scores?.distraction?.is_distracted == true -> "DISTRACTION"
-                                else -> "ALERT"
-                            }
-                            logAlertOnBackend(type)
-                        }
-                    }
                 }
         }
     }
@@ -239,106 +268,47 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                     session_id = sessionId,
                     latitude = loc.latitude,
                     longitude = loc.longitude,
-                    speed = loc.speed.toDouble()
+                    speed = (loc.speed * 3.6)
                 )
+                
                 capturedLocations.add(point)
                 
-                try {
-                    repository.logLocation(sessionId, point.latitude, point.longitude, point.speed)
-                    repository.updateDistance(sessionId, _state.value.distanceMeters)
-                } catch (e: Exception) { }
-            }
-        }
-    }
-
-    private fun simplifyPath(points: List<com.example.dms_app.core.network.LocationCreate>, epsilon: Double): List<com.example.dms_app.core.network.LocationCreate> {
-        if (points.size < 3) return points
-
-        var maxDist = 0.0
-        var index = 0
-        for (i in 1 until points.size - 1) {
-            val dist = perpendicularDistance(points[i], points[0], points.last())
-            if (dist > maxDist) {
-                maxDist = dist
-                index = i
-            }
-        }
-
-        return if (maxDist > epsilon) {
-            val left = simplifyPath(points.subList(0, index + 1), epsilon)
-            val right = simplifyPath(points.subList(index, points.size), epsilon)
-            left.dropLast(1) + right
-        } else {
-            listOf(points.first(), points.last())
-        }
-    }
-
-    private fun perpendicularDistance(p: com.example.dms_app.core.network.LocationCreate, start: com.example.dms_app.core.network.LocationCreate, end: com.example.dms_app.core.network.LocationCreate): Double {
-        val dy = end.latitude - start.latitude
-        val dx = end.longitude - start.longitude
-        if (dx == 0.0 && dy == 0.0) {
-            return Math.sqrt(Math.pow(p.latitude - start.latitude, 2.0) + Math.pow(p.longitude - start.longitude, 2.0))
-        }
-        val t = ((p.longitude - start.longitude) * dx + (p.latitude - start.latitude) * dy) / (dx * dx + dy * dy)
-        val nearestX: Double
-        val nearestY: Double
-        if (t < 0) {
-            nearestX = start.longitude
-            nearestY = start.latitude
-        } else if (t > 1) {
-            nearestX = end.longitude
-            nearestY = end.latitude
-        } else {
-            nearestX = start.longitude + t * dx
-            nearestY = start.latitude + t * dy
-        }
-        return Math.sqrt(Math.pow(p.longitude - nearestX, 2.0) + Math.pow(p.latitude - nearestY, 2.0))
-    }
-
-    fun endDrive() {
-        viewModelScope.launch {
-            endDriveInternal()
-        }
-    }
-
-    private suspend fun endDriveInternal() {
-        println("DEBUG: Ending drive for session: $currentSessionId")
-        try {
-            currentSessionId?.let { id ->
-                println("DEBUG: Syncing final distance: ${_state.value.distanceMeters}")
-                repository.updateDistance(id, _state.value.distanceMeters)
-                
-                // Post average focus
-                if (focusCount > 0) {
-                    val avgFocus = (focusSum / focusCount).toInt()
-                    println("DEBUG: Syncing average focus: $avgFocus")
-                    repository.updateScore(id, avgFocus)
-                }
-                
-                println("DEBUG: Calling stopSession endpoint")
-                
-                // Final Path Simplification and Sync
-                if (capturedLocations.size > 2) {
-                    println("DEBUG: Simplifying path with ${capturedLocations.size} points")
-                    // epsilon of 0.0001 is roughly 11 meters
-                    val simplified = simplifyPath(capturedLocations, 0.0001)
-                    println("DEBUG: Path simplified to ${simplified.size} points. Syncing...")
+                // Sync with backend every 30 seconds or if we have 5 points
+                if (capturedLocations.size >= 3) {
                     try {
-                        repository.logLocations(id, simplified)
+                        repository.logLocations(sessionId, capturedLocations.toList())
+                        capturedLocations.clear()
                     } catch (e: Exception) {
-                        println("DEBUG: Batch location sync failed: ${e.message}")
+                        println("DEBUG: Failed to sync locations: ${e.message}")
                     }
                 }
+            }
+        }
+    }
 
-                repository.stopSession(id) 
+    private fun endDriveInternal() {
+        viewModelScope.launch {
+            val sessionId = currentSessionId
+            if (sessionId != null) {
+                try {
+                    // Final stats sync
+                    val avgFocus = if (focusCount > 0) (focusSum / focusCount).toInt() else 100
+                    repository.updateScore(sessionId, avgFocus)
+                    repository.updateDistance(sessionId, totalDistanceMeters.toInt())
+                    
+                    if (capturedLocations.isNotEmpty()) {
+                        repository.logLocations(sessionId, capturedLocations.toList())
+                    }
+                    
+                    repository.stopSession(sessionId)
+                    stopUseCase()
+                } catch (e: Exception) {
+                    println("DEBUG: Error stopping session: ${e.message}")
+                }
             }
             
-            println("DEBUG: Stopping AI Analysis")
-            stopUseCase()
-        } catch (e: Exception) {
-            println("DEBUG: Error during endDrive: ${e.message}")
-        } finally {
-            monitoringJob?.cancel()
+            aiListeningJob?.cancel()
+            locationJob?.cancel()
             timerJob?.cancel()
             speedJob?.cancel()
             locationSyncJob?.cancel()
@@ -353,5 +323,10 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
             )
             println("DEBUG: Drive ended and jobs cancelled")
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        soundManager.release()
     }
 }
