@@ -16,7 +16,7 @@ class IoTClient:
         return response.json()
 
     def get_preview(self):
-        return f"192.168.1.131:8001/preview"
+        return f"192.168.137.1:8001/preview"
 
     def stop_preview(self):
         try:

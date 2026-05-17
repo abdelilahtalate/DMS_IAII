@@ -1,4 +1,4 @@
-# Android LLM Coding Rules
+ be# Android LLM Coding Rules
 
 Use this file as the mandatory instruction set for any LLM or developer editing the `android` app. The goal is to keep the app scalable, flexible, easy to modify, and consistent with the existing feature-based MVVM structure.
 

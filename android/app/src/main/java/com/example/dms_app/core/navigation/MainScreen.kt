@@ -106,6 +106,25 @@ fun MainScreen(
                     onToggleTheme = onToggleTheme,
                     isDarkTheme = appTheme == AppTheme.DARK,
                     onSignOut = onSignOut,
+                    onNavigateToSettings = {
+                        navController.navigate("alert_settings")
+                    },
+                    modifier = Modifier.padding(bottom = 90.dp)
+                )
+            }
+
+            composable("alert_settings") {
+                com.example.dms_app.feature_settings.presentation.AlertSettingsScreen(
+                    onNavigate = { dest ->
+                        val route = when(dest) {
+                            NavDestination.HOME -> "dashboard"
+                            NavDestination.TRIPS -> "trips"
+                            NavDestination.INSIGHTS -> "insights"
+                            NavDestination.PROFILE -> "profile"
+                            NavDestination.DRIVE -> "livedrive"
+                        }
+                        navController.navigate(route)
+                    },
                     modifier = Modifier.padding(bottom = 90.dp)
                 )
             }
