@@ -3,8 +3,11 @@ there is 3 server side (android_backend / backend_ai / iot_sumilator)
 
 each server side had his own venv puthon
 so creat 3 venv for each directory 
+
     /iot_simulator  --> python -m venv esp32  ---> esp32/Scripts/activate -->   python -m uvicorn main:app --host 0.0.0.0 --port 8001
+    
     /backend_ai --> python -m venv AIenv --> AIenv/Scripts/activate---> python -m uvicorn main:app --host 0.0.0.0 --port 8002
+    
     /android_backend ---> python -m venv Andrenv -->Andrenv/Scripts/activate---> python -m uvicorn main:app --host 0.0.0.0 --port 8000
 
 🚨🚨🚨be carefull 🚨🚨🚨
