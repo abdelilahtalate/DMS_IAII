@@ -25,14 +25,22 @@ class SoundManager(private val context: Context) {
     private var warningSoundId: Int = -1
     private var criticalSoundId: Int = -1
     
-    // Fallback tone generator
-    private val toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    
+    // Fallback tone generator - use notification stream to respect silent mode better
+    private val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
 
     init {
         // Future: load real sounds from R.raw
     }
 
+    private fun shouldPlaySound(): Boolean {
+        return audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL
+    }
+
     fun playWarning() {
+        if (!shouldPlaySound()) return
+        
         if (warningSoundId != -1) {
             soundPool.play(warningSoundId, 0.7f, 0.7f, 1, 0, 1f)
         } else {
@@ -42,11 +50,12 @@ class SoundManager(private val context: Context) {
     }
 
     fun playCritical() {
+        if (!shouldPlaySound()) return
+
         if (criticalSoundId != -1) {
             soundPool.play(criticalSoundId, 1f, 1f, 2, 0, 1f)
         } else {
             // Stronger alert tone
-            // We use a repeatable tone if needed, but for now just a longer one
             toneGenerator.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000)
         }
     }

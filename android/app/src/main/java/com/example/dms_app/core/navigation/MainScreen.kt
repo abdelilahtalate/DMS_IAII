@@ -114,7 +114,7 @@ fun MainScreen(
             }
 
             composable("alert_settings") {
-                com.example.dms_app.feature_profile.presentation.settings.AlertSettingsScreen(
+                com.example.dms_app.feature_settings.presentation.AlertSettingsScreen(
                     onNavigate = { dest ->
                         val route = when(dest) {
                             NavDestination.HOME -> "dashboard"

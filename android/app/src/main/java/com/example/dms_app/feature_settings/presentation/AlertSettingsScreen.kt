@@ -1,17 +1,36 @@
-package com.example.dms_app.feature_profile.presentation.settings
+package com.example.dms_app.feature_settings.presentation
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,7 +41,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.dms_app.core.ui.components.*
+import com.example.dms_app.core.ui.components.BottomNavBar
+import com.example.dms_app.core.ui.components.DriveMindBackground
+import com.example.dms_app.core.ui.components.NavDestination
+import com.example.dms_app.core.ui.components.SecondaryButton
+import com.example.dms_app.core.ui.components.SurfaceCard
+import com.example.dms_app.core.ui.components.ToggleSwitch
 import com.example.dms_app.core.ui.theme.LocalAppColors
 
 @Composable
@@ -32,13 +56,7 @@ fun AlertSettingsScreen(
     viewModel: AlertSettingsViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val fatigueLevel by viewModel.fatigueLevel.collectAsStateWithLifecycle()
-    val phoneLevel by viewModel.phoneLevel.collectAsStateWithLifecycle()
-    val distractionLevel by viewModel.distractionLevel.collectAsStateWithLifecycle()
-    val voiceAlertsOn by viewModel.voiceAlertsOn.collectAsStateWithLifecycle()
-    val hapticOn by viewModel.hapticOn.collectAsStateWithLifecycle()
-    val criticalOnlyOn by viewModel.criticalOnlyOn.collectAsStateWithLifecycle()
-
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val colors = LocalAppColors.current
 
     DriveMindBackground {
@@ -48,7 +66,6 @@ fun AlertSettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 80.dp)
         ) {
-            // 1. HEADER
             Column(
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
@@ -67,7 +84,28 @@ fun AlertSettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 2. DETECTION SENSITIVITY CARD
+            if (state.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = colors.cyan)
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            state.error?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.redAlert,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             SurfaceCard(
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
@@ -83,21 +121,21 @@ fun AlertSettingsScreen(
                     SensitivityRow(
                         label = "Fatigue Detection",
                         icon = Icons.Rounded.Visibility,
-                        currentLevel = fatigueLevel,
+                        currentLevel = state.fatigueLevel,
                         onLevelSelected = viewModel::setFatigue
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     SensitivityRow(
                         label = "Phone Usage",
                         icon = Icons.Rounded.PhoneAndroid,
-                        currentLevel = phoneLevel,
+                        currentLevel = state.phoneLevel,
                         onLevelSelected = viewModel::setPhone
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     SensitivityRow(
                         label = "Distraction Alert",
                         icon = Icons.Rounded.Warning,
-                        currentLevel = distractionLevel,
+                        currentLevel = state.distractionLevel,
                         onLevelSelected = viewModel::setDistraction
                     )
                 }
@@ -105,7 +143,6 @@ fun AlertSettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 3. NOTIFICATION PREFERENCES CARD
             SurfaceCard(
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
@@ -121,21 +158,21 @@ fun AlertSettingsScreen(
                     ToggleRow(
                         label = "Voice Alerts",
                         icon = Icons.Rounded.VolumeUp,
-                        isOn = voiceAlertsOn,
+                        isOn = state.voiceAlertsOn,
                         onToggle = viewModel::toggleVoice
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     ToggleRow(
                         label = "Haptic Feedback",
                         icon = Icons.Rounded.Vibration,
-                        isOn = hapticOn,
+                        isOn = state.hapticOn,
                         onToggle = viewModel::toggleHaptic
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     ToggleRow(
                         label = "Critical Only",
                         icon = Icons.Rounded.Notifications,
-                        isOn = criticalOnlyOn,
+                        isOn = state.criticalOnlyOn,
                         onToggle = viewModel::toggleCritical
                     )
                 }
@@ -143,53 +180,31 @@ fun AlertSettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 4. VOICE PREFERENCE CARD
             SurfaceCard(
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
                     .fillMaxWidth()
             ) {
-                val currentVoice by viewModel.preferredVoice.collectAsStateWithLifecycle()
                 val voices = listOf("DEFAULT", "NOVA", "ECHO", "SHIMMER")
-                
+
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = "Voice Preference",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         voices.forEach { voice ->
-                            val isSelected = currentVoice == voice
-                            val bgColor by animateColorAsState(
-                                targetValue = if (isSelected) colors.cyan else colors.surface2,
-                                label = "voice_bg"
+                            VoiceOption(
+                                voice = voice,
+                                isSelected = state.preferredVoice == voice,
+                                onSelected = { viewModel.setVoice(voice) },
+                                modifier = Modifier.weight(1f)
                             )
-                            val textColor = if (isSelected) {
-                                if (colors.isDark) Color.Black else Color.White
-                            } else {
-                                colors.mutedForeground
-                            }
-                            
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(40.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(bgColor)
-                                    .clickable { viewModel.setVoice(voice) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = voice.lowercase().capitalize(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = textColor
-                                )
-                            }
                         }
                     }
                 }
@@ -197,7 +212,6 @@ fun AlertSettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 5. SOUND PREVIEW CARD
             SurfaceCard(
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
@@ -268,7 +282,7 @@ fun SensitivityRow(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = currentLevel.name.lowercase().capitalize(),
+                text = currentLevel.name.displayName(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.cyan,
                 fontWeight = FontWeight.Medium
@@ -301,7 +315,7 @@ fun SensitivityRow(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = level.name.lowercase().capitalize(),
+                        text = level.name.displayName(),
                         style = MaterialTheme.typography.labelMedium,
                         color = textColor
                     )
@@ -361,4 +375,42 @@ fun CriticalPreviewButton(
             fontSize = 16.sp
         )
     }
+}
+
+@Composable
+private fun VoiceOption(
+    voice: String,
+    isSelected: Boolean,
+    onSelected: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalAppColors.current
+    val bgColor by animateColorAsState(
+        targetValue = if (isSelected) colors.cyan else colors.surface2,
+        label = "voice_bg"
+    )
+    val textColor = if (isSelected) {
+        if (colors.isDark) Color.Black else Color.White
+    } else {
+        colors.mutedForeground
+    }
+
+    Box(
+        modifier = modifier
+            .height(40.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(bgColor)
+            .clickable { onSelected() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = voice.displayName(),
+            style = MaterialTheme.typography.labelSmall,
+            color = textColor
+        )
+    }
+}
+
+private fun String.displayName(): String {
+    return lowercase().replaceFirstChar { it.uppercase() }
 }

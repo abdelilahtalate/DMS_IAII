@@ -7,11 +7,14 @@ import com.example.dms_app.DriveMindApp
 import com.example.dms_app.core.database.TokenManager
 import com.example.dms_app.core.location.DefaultLocationClient
 import com.example.dms_app.core.location.LocationRepository
+import com.example.dms_app.core.network.ApiClient
 import com.example.dms_app.feature_livedrive.data.LiveDriveRepository
 import com.example.dms_app.feature_livedrive.domain.ObserveAiResultsUseCase
 import com.example.dms_app.feature_livedrive.domain.StartAnalysisUseCase
 import com.example.dms_app.feature_livedrive.domain.StopAnalysisUseCase
-import com.google.gson.Gson
+import com.example.dms_app.feature_settings.data.AlertSettingsRepository
+import com.example.dms_app.feature_settings.domain.AlertSettings
+import com.example.dms_app.feature_settings.domain.GetAlertSettingsUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -54,6 +57,12 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
     private val stopUseCase = StopAnalysisUseCase(repository)
     private val observeAiResultsUseCase = ObserveAiResultsUseCase(repository)
     private val tokenManager = TokenManager(app)
+    private val getAlertSettingsUseCase = GetAlertSettingsUseCase(
+        AlertSettingsRepository(
+            apiService = ApiClient.apiService,
+            tokenManager = tokenManager
+        )
+    )
     
     // GPS Location
     private val locationRepository = LocationRepository(DefaultLocationClient(DriveMindApp.instance))
@@ -70,11 +79,13 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
     private var timerJob: Job? = null
     private var speedJob: Job? = null
     private var locationSyncJob: Job? = null
+    private var settingsRefreshJob: Job? = null
     
     private var currentSessionId: Int? = null
     private var totalDistanceMeters: Double = 0.0
     private var focusSum: Long = 0
     private var focusCount: Int = 0
+    private var alertSettings = AlertSettings.defaults()
     
     private var lastAlertLogTime: Long = 0
     private var lastSoundTriggerTime: Long = 0
@@ -115,6 +126,7 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                         capturedLocations.clear()
                         lastLocation = null
                         consecutiveAlerts = 0
+                        refreshAlertSettings()
                         
                         // Start AI Analysis
                         try {
@@ -135,6 +147,7 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                         startTimer()
                         startSpeedTracking()
                         startLocationSync()
+                        startAlertSettingsRefresh()
                     } catch (e: Exception) {
                         _state.value = _state.value.copy(error = "Failed to start session: ${e.message}")
                     }
@@ -154,11 +167,8 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 .collect { wrapper ->
                     val newFocus = wrapper.focus.toInt()
-                    val newStatus = when {
-                        newFocus < 40 -> DriveStatus.ALERT
-                        newFocus < 75 -> DriveStatus.WARNING
-                        else -> DriveStatus.FOCUSED
-                    }
+                    val settings = alertSettings
+                    val newStatus = resolveDriveStatus(wrapper, settings)
                     
                     val now = System.currentTimeMillis()
                     
@@ -169,9 +179,8 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                         soundManager.stopVibration()
                     } else if (newStatus == DriveStatus.WARNING) {
                         consecutiveAlerts = 0
-                        if (now - lastSoundTriggerTime > SOUND_TRIGGER_COOLDOWN_MS) {
-                            soundManager.playWarning()
-                            soundManager.vibrate(300)
+                        if (!settings.criticalOnly && now - lastSoundTriggerTime > SOUND_TRIGGER_COOLDOWN_MS) {
+                            playWarningFeedback(settings)
                             lastSoundTriggerTime = now
                         }
                     } else if (newStatus == DriveStatus.ALERT) {
@@ -181,8 +190,7 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                         if (consecutiveAlerts >= ALERT_THRESHOLD_FRAMES) {
                             if (now - lastSoundTriggerTime > SOUND_TRIGGER_COOLDOWN_MS) {
                                 _alertEvent.emit(Unit)
-                                soundManager.playCritical()
-                                soundManager.vibrate(800)
+                                playCriticalFeedback(settings)
                                 lastSoundTriggerTime = now
                             }
                         }
@@ -190,12 +198,7 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                         // Backend Logging Cooldown
                         if (now - lastAlertLogTime > ALERT_LOG_COOLDOWN_MS) {
                             lastAlertLogTime = now
-                            val type = when {
-                                wrapper.scores?.fatigue?.is_fatigued == true -> "FATIGUE"
-                                wrapper.scores?.distraction?.is_distracted == true -> "DISTRACTION"
-                                else -> "ALERT"
-                            }
-                            logAlertOnBackend(type)
+                            logAlertOnBackend(resolveAlertType(wrapper, settings))
                         }
                     }
                     
@@ -209,6 +212,74 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
                     focusSum += newFocus
                     focusCount++
                 }
+        }
+    }
+
+    private suspend fun refreshAlertSettings() {
+        getAlertSettingsUseCase()
+            .onSuccess { settings ->
+                alertSettings = settings ?: AlertSettings.defaults()
+            }
+            .onFailure { error ->
+                alertSettings = AlertSettings.defaults()
+                _state.value = _state.value.copy(
+                    error = error.localizedMessage ?: "Failed to load alert settings"
+                )
+            }
+    }
+
+    private fun resolveDriveStatus(
+        wrapper: AiResultWrapper,
+        settings: AlertSettings
+    ): DriveStatus {
+        val fatigueAlert = wrapper.scores?.fatigue?.let {
+            it.score >= settings.fatigueSensitivity.scoreThreshold()
+        } ?: false
+
+        val distractionAlert = wrapper.scores?.distraction?.let {
+            it.score >= settings.distractionSensitivity.scoreThreshold()
+        } ?: false
+
+        val focus = wrapper.focus.toInt()
+        val alertThreshold = settings.averageSensitivity().focusAlertThreshold()
+        val warningThreshold = settings.averageSensitivity().focusWarningThreshold()
+
+        return when {
+            fatigueAlert || distractionAlert || focus < alertThreshold -> DriveStatus.ALERT
+            focus < warningThreshold -> DriveStatus.WARNING
+            else -> DriveStatus.FOCUSED
+        }
+    }
+
+    private fun resolveAlertType(
+        wrapper: AiResultWrapper,
+        settings: AlertSettings
+    ): String {
+        val fatigueScore = wrapper.scores?.fatigue?.score ?: 0f
+        val distractionScore = wrapper.scores?.distraction?.score ?: 0f
+
+        return when {
+            fatigueScore >= settings.fatigueSensitivity.scoreThreshold() -> "FATIGUE"
+            distractionScore >= settings.distractionSensitivity.scoreThreshold() -> "DISTRACTION"
+            else -> "ALERT"
+        }
+    }
+
+    private fun playWarningFeedback(settings: AlertSettings) {
+        if (settings.voiceAlerts) {
+            soundManager.playWarning()
+        }
+        if (settings.hapticFeedback) {
+            soundManager.vibrate(300)
+        }
+    }
+
+    private fun playCriticalFeedback(settings: AlertSettings) {
+        if (settings.voiceAlerts) {
+            soundManager.playCritical()
+        }
+        if (settings.hapticFeedback) {
+            soundManager.vibrate(800)
         }
     }
 
@@ -286,6 +357,16 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun startAlertSettingsRefresh() {
+        settingsRefreshJob?.cancel()
+        settingsRefreshJob = viewModelScope.launch {
+            while (true) {
+                delay(30000)
+                refreshAlertSettings()
+            }
+        }
+    }
+
     private fun endDriveInternal() {
         viewModelScope.launch {
             val sessionId = currentSessionId
@@ -312,6 +393,7 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
             timerJob?.cancel()
             speedJob?.cancel()
             locationSyncJob?.cancel()
+            settingsRefreshJob?.cancel()
             currentSessionId = null
             
             _state.value = _state.value.copy(
@@ -327,6 +409,62 @@ class LiveDriveViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         super.onCleared()
+        aiListeningJob?.cancel()
+        locationJob?.cancel()
+        timerJob?.cancel()
+        speedJob?.cancel()
+        locationSyncJob?.cancel()
+        settingsRefreshJob?.cancel()
         soundManager.release()
+    }
+}
+
+private fun String.scoreThreshold(): Float {
+    return when (uppercase()) {
+        "HIGH" -> 0.45f
+        "MEDIUM" -> 0.65f
+        "LOW" -> 0.80f
+        else -> 0.65f
+    }
+}
+
+private fun String.focusWarningThreshold(): Int {
+    return when (uppercase()) {
+        "HIGH" -> 80
+        "MEDIUM" -> 75
+        "LOW" -> 65
+        else -> 75
+    }
+}
+
+private fun String.focusAlertThreshold(): Int {
+    return when (uppercase()) {
+        "HIGH" -> 50
+        "MEDIUM" -> 40
+        "LOW" -> 30
+        else -> 40
+    }
+}
+
+private fun AlertSettings.averageSensitivity(): String {
+    val values = listOf(
+        fatigueSensitivity.sensitivityValue(),
+        phoneSensitivity.sensitivityValue(),
+        distractionSensitivity.sensitivityValue()
+    )
+    val average = values.average()
+    return when {
+        average >= 2.5 -> "HIGH"
+        average <= 1.5 -> "LOW"
+        else -> "MEDIUM"
+    }
+}
+
+private fun String.sensitivityValue(): Int {
+    return when (uppercase()) {
+        "HIGH" -> 3
+        "MEDIUM" -> 2
+        "LOW" -> 1
+        else -> 2
     }
 }
